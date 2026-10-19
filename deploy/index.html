@@ -4,15 +4,49 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>诡异事务局 · 第一季「补丁」</title>
+<meta name="description" content="第一季「补丁」· 首案 0017 已开启，其余案卷尚未开启。夜班调度席，27 分钟，Godot 实机与交互原型两个入口。">
+<meta name="theme-color" content="#07090f">
+<link rel="canonical" href="https://visionary-concha-bf9fea.netlify.app/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="诡异事务局">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://visionary-concha-bf9fea.netlify.app/">
+<meta property="og:title" content="诡异事务局 · 第一季「补丁」">
+<meta property="og:description" content="第一季「补丁」· 首案 0017 已开启，其余案卷尚未开启。夜班调度席，27 分钟。">
+<meta property="og:image" content="https://visionary-concha-bf9fea.netlify.app/og-cover.png">
+<meta property="og:image:secure_url" content="https://visionary-concha-bf9fea.netlify.app/og-cover.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="诡异事务局 · 第一季「补丁」">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="诡异事务局 · 第一季「补丁」">
+<meta name="twitter:description" content="第一季「补丁」· 首案 0017 已开启，其余案卷尚未开启。夜班调度席，27 分钟。">
+<meta name="twitter:image" content="https://visionary-concha-bf9fea.netlify.app/og-cover.png">
+
+<!-- Icons -->
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
 <style>
-  :root{--bg:#07090f;--fg:#e8eef7;--dim:#8b98ac;--line:#1e2531;--acc:#5ad1ff;--gold:#ffd479;}
+  :root{--bg:#07090f;--fg:#e8eef7;--dim:#8b98ac;--line:#1e2531;--acc:#5ad1ff;--gold:#ffd479;--green:#48d6a4;}
   *{box-sizing:border-box}
   body{margin:0;background:linear-gradient(180deg,#07090f,#0d1219 60%,#07090f);color:var(--fg);
        font:16px/1.7 "Microsoft YaHei","PingFang SC",system-ui,sans-serif;min-height:100vh}
   .wrap{max-width:860px;margin:0 auto;padding:52px 24px 80px}
   h1{font-size:30px;margin:0 0 6px;letter-spacing:.5px}
-  .sub{color:var(--dim);margin:0 0 30px;font-size:14px}
+  .sub{color:var(--dim);margin:0 0 18px;font-size:14px}
   .sub b{color:var(--acc);font-weight:600}
+  .status{display:flex;align-items:flex-start;gap:10px;margin:0 0 8px;padding:12px 16px;
+          background:#0d1a16;border:1px solid #1f3a30;border-radius:10px;color:#bfe6d5;font-size:14px}
+  .status i{flex:0 0 auto;width:8px;height:8px;margin-top:8px;border-radius:50%;background:var(--green);
+            box-shadow:0 0 10px rgba(72,214,164,.8)}
   h2{font-size:15px;color:var(--dim);font-weight:600;letter-spacing:2px;
      margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
   a.card{display:block;text-decoration:none;color:inherit;background:#0e131c;border:1px solid var(--line);
@@ -36,10 +70,16 @@
   <h1>诡异事务局</h1>
   <p class="sub">团队「你对我不对」　|　第一季「补丁」　|　夜班调度席 · 27 分钟</p>
 
-  <h2>游玩</h2>
+  <p class="status"><i></i><span>第一季「补丁」· 首案 0017 已开启，其余案卷尚未开启</span></p>
+
+  <h2>入口</h2>
   <a class="card hero" href="game/">
-    <div class="t">▶ 诡异事务局 · 第一季「补丁」 <span class="tag">Godot 引擎</span></div>
-    <div class="d">第一案 · 岚桥站 · 半秒。3D 实机运行的完整游戏，不是界面原型。首次加载需要下载约 120 MB 资源，请等进度条走完。</div>
+    <div class="t">▶ 诡异事务局 · 第一季「补丁」 <span class="tag">Godot 实机</span></div>
+    <div class="d">首案 0017「岚桥站」· 半秒。3D 实机运行的完整游戏，不是界面原型。首次加载需要下载约 120 MB 资源，请等进度条走完。</div>
+  </a>
+  <a class="card" href="v6-人话版.html">
+    <div class="t">原型 v6 · 人话版 <span class="tag">最终原型</span></div>
+    <div class="d">完整交互流程：主菜单、调度台、线索板、日志、结局弹窗</div>
   </a>
 
   <div class="note">
@@ -48,35 +88,10 @@
     若画面卡顿看不到内容，请用 <b>Chrome / Edge</b> 打开（需支持 WebGL2）。
   </div>
 
-  <h2>界面原型（第二次作业交付）</h2>
-  <a class="card" href="v6-人话版.html">
-    <div class="t">原型 v6 · 人话版 <span class="tag">最新</span></div>
-    <div class="d">完整交互流程：主菜单、调度台、线索板、日志、结局弹窗</div>
-  </a>
-  <a class="card" href="3d-岚桥站.html">
-    <div class="t">3D 岚桥站 <span class="tag">画面</span></div>
-    <div class="d">网页版三维车站场景，用于观感演示</div>
-  </a>
-  <a class="card" href="角色互动版.html">
-    <div class="t">角色互动版</div>
-    <div class="d">SVG 车站场景、对话气泡、乘客互动、时间条</div>
-  </a>
-  <a class="card" href="v5-值班台版.html">
-    <div class="t">v5 · 值班台版</div>
-    <div class="d">调度席视角的单屏版本</div>
-  </a>
-
-  <h2>历史版本</h2>
-  <a class="card" href="v4.html"><div class="t">v4</div><div class="d">10/14 14:12</div></a>
-  <a class="card" href="v3.html"><div class="t">v3</div><div class="d">10/14 13:26</div></a>
-  <a class="card" href="v2.html"><div class="t">v2</div><div class="d">10/14 13:17 · 主菜单 / 存档 / 设置 / 本轮目标</div></a>
-
   <footer>
     游戏本体由 Godot 4.7.2 导出为 Web（Compatibility 渲染器，无线程版）<br>
-    界面原型为单文件 HTML，无外部依赖
+    交互原型为单文件 HTML，无外部依赖。历史版本已下线，访问旧地址会跳回本页。
   </footer>
 </div>
 </body>
 </html>
-
-

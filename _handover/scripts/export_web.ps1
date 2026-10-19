@@ -1,4 +1,4 @@
-﻿param(
+param(
   [string]$Root = "",
   [string]$Godot = "C:\Users\Sabrina\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7.2-stable_win64_console.exe",
   [switch]$Zip
@@ -22,14 +22,25 @@ Write-Host "Output : $OutHtml"
 if ($LASTEXITCODE -ne 0) { throw "Godot export failed with exit code $LASTEXITCODE" }
 
 Write-Host "== Patch browser title =="
+# Godot 导出会把工程名写成标签（岚桥站 0017）。统一改成《诡异事务局》，
+# 并在引擎启动完成时设置一次标题；不要用 setInterval 轮询。
 $html = [System.IO.File]::ReadAllText($OutHtml, [System.Text.Encoding]::UTF8)
-$html = $html.Replace('<title>岚桥站 0017</title>', '<title>诡异事务局 · 第一季「补丁」</title>')
-$titleScript = "<script>setInterval(function(){document.title='诡异事务局 · 第一季「补丁」';},500);</script>"
-if ($html -notmatch "document.title='诡异事务局") {
-  $html = $html.Replace("</head>", $titleScript + "`n</head>")
-  if ($html -notmatch "document.title='诡异事务局") {
-    throw "Failed to insert title script: </head> not found in exported index.html"
-  }
+$title = '诡异事务局 · 第一季「补丁」'
+$html = [regex]::Replace($html, '(?s)<title>.*?</title>', "<title>$title</title>")
+
+$titleSet = "`n`t`t`t// 引擎启动会按工程名改写标题；启动完成后只设置一次，不再轮询。`n`t`t`tdocument.title = '$title';"
+$hook = @'
+(\}\)\.then\(\(\) => \{\s*setStatusMode\('hidden'\);)
+'@
+if ($html -notmatch $hook) {
+  throw "Failed to patch startup title: setStatusMode('hidden') hook not found in exported index.html"
+}
+$html = $html -replace $hook, ('$1' + $titleSet)
+if ($html -notmatch [regex]::Escape("document.title = '$title'")) {
+  throw "Failed to insert one-time title assignment"
+}
+if ($html -match 'setInterval\(function\(\)\{document\.title') {
+  throw "Legacy setInterval title hack still present in exported index.html"
 }
 [System.IO.File]::WriteAllText($OutHtml, $html, [System.Text.UTF8Encoding]::new($false))
 
