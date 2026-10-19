@@ -1,0 +1,24 @@
+# ── 文档仓 .gitignore ─────────────────────────────
+# Godot 主工程有独立的 git 仓库（anomaly-bureau-game），不在此仓重复
+岚桥站0017-Godot/
+
+# Netlify 本地状态（含 siteId，不公开）
+.netlify/
+
+# Web 导出构建产物（114MB，可由 export_web.ps1 重新生成）
+deploy/game/
+
+# 授权令牌与临时凭证
+_setup/.gh_token
+_setup/.gh_*
+*.pfx
+*.pem
+
+# 临时与缓存
+*.bak
+*.tmp
+_test_save.json
+~$*
+.DS_Store
+Thumbs.db
+__pycache__/

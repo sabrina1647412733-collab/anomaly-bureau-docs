@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>最后一班地铁 0017 · 3D 岚桥站</title>
+<style>
+:root{
+  --amber:#ffb347; --cyan:#63d9ff; --warn:#ff5a4d; --ink:#04060a; --dim:#7d8b9b;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;overflow:hidden;background:#04060a;color:#dfe7ef;
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",system-ui,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+canvas#gl{position:fixed;left:0;top:0;width:100%;height:100%;display:block;}
+#hud,#fx,#start,#end,#pause{position:fixed;left:0;top:0;width:100%;height:100%;}
+#hud{pointer-events:none;z-index:5;}
+#fx{pointer-events:none;z-index:6;}
+#start,#end,#pause{z-index:20;}
+.mono{font-family:"Consolas","SFMono-Regular","Courier New",monospace;font-variant-numeric:tabular-nums;}
+
+/* ---------- fx ---------- */
+#vignette{position:absolute;inset:0;
+  background:radial-gradient(ellipse 78% 68% at 50% 48%,rgba(0,0,0,0) 40%,rgba(0,0,0,.55) 78%,rgba(0,0,0,.86) 100%);}
+#scan{position:absolute;inset:0;opacity:.16;mix-blend-mode:overlay;
+  background:repeating-linear-gradient(to bottom,rgba(255,255,255,.10) 0 1px,rgba(0,0,0,0) 1px 3px);}
+#dmg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,40,30,0) 45%,rgba(255,30,20,.42) 100%);
+  opacity:0;transition:opacity .5s;}
+#fade{position:absolute;inset:0;background:#04060a;opacity:0;transition:opacity 1.1s;}
+#warnflash{position:absolute;inset:0;background:rgba(255,50,40,0);transition:background .25s;}
+
+/* ---------- crosshair ---------- */
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;opacity:.75;}
+#cross:before,#cross:after{content:"";position:absolute;background:#dfe7ef;box-shadow:0 0 4px #000;}
+#cross:before{left:50%;top:0;width:1px;height:100%;margin-left:-.5px;}
+#cross:after{top:50%;left:0;height:1px;width:100%;margin-top:-.5px;}
+#cross .dot{position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%;
+  background:var(--amber);box-shadow:0 0 6px var(--amber);}
+#cross.hot:before,#cross.hot:after{background:var(--amber);}
+
+/* ---------- top bar ---------- */
+#top{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:10px;align-items:stretch;}
+.panel{background:linear-gradient(180deg,rgba(8,12,18,.82),rgba(8,12,18,.62));
+  border:1px solid rgba(120,150,175,.28);border-radius:2px;box-shadow:0 6px 26px rgba(0,0,0,.55);}
+#clockBox{padding:6px 16px 7px;text-align:center;min-width:172px;}
+#clockBox .lab{font-size:9px;letter-spacing:.28em;color:var(--dim);}
+#clock{font-size:34px;line-height:1;letter-spacing:.06em;color:var(--amber);text-shadow:0 0 16px rgba(255,179,71,.45);}
+#clock.crit{color:var(--warn);text-shadow:0 0 20px rgba(255,90,77,.75);animation:blip .9s infinite;}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.35}}
+#clockSub{font-size:9.5px;letter-spacing:.2em;color:var(--dim);margin-top:3px;}
+
+#fragBox{padding:7px 12px;min-width:186px;}
+#fragBox .lab{font-size:9px;letter-spacing:.24em;color:var(--dim);margin-bottom:4px;}
+.frag{display:flex;align-items:center;gap:6px;font-size:11.5px;line-height:1.55;color:#6c7887;}
+.frag .bx{width:9px;height:9px;border:1px solid #46525f;display:inline-block;flex:0 0 auto;}
+.frag.has{color:#cfeaff;}
+.frag.has .bx{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 8px rgba(99,217,255,.8);}
+.frag .id{font-size:9px;color:#4d5a68;}
+
+/* ---------- left mission ---------- */
+#mission{position:absolute;left:16px;top:14px;width:250px;padding:9px 12px 11px;}
+#mission .t{font-size:9px;letter-spacing:.3em;color:var(--dim);}
+#mission .h{font-size:14px;margin-top:4px;color:#fff;letter-spacing:.04em;}
+#mission .o{font-size:11px;line-height:1.6;margin-top:6px;color:#a9bccd;}
+#mission .o b{color:var(--amber);font-weight:600;}
+#mission .rule{height:1px;background:linear-gradient(90deg,rgba(120,150,175,.5),rgba(120,150,175,0));margin:7px 0;}
+
+#arrows{position:absolute;left:16px;top:150px;display:flex;flex-direction:column;gap:7px;}
+.obj{display:flex;align-items:center;gap:8px;background:rgba(8,12,18,.5);border-left:2px solid var(--cyan);
+  padding:3px 9px 3px 8px;font-size:11px;color:#bcd0e0;}
+.obj.done{color:#5c6a79;border-left-color:#33414e;text-decoration:line-through;}
+.obj .d{margin-left:auto;color:var(--amber);font-size:10.5px;}
+
+/* ---------- objective compass ---------- */
+#compass{position:absolute;left:50%;top:50%;width:0;height:0;}
+#compass .ring{position:absolute;left:-120px;top:-120px;width:240px;height:240px;border-radius:50%;
+  border:1px dashed rgba(120,150,175,.16);}
+#cArrow{position:absolute;left:-140px;top:-9px;width:280px;height:18px;transform-origin:50% 50%;}
+#cArrow .sh{position:absolute;right:0;top:3px;width:0;height:0;border-left:9px solid var(--cyan);
+  border-top:6px solid transparent;border-bottom:6px solid transparent;filter:drop-shadow(0 0 6px rgba(99,217,255,.9));}
+#cArrow .ln{position:absolute;right:9px;top:8.5px;height:1px;background:linear-gradient(90deg,rgba(99,217,255,0),rgba(99,217,255,.65));width:180px;}
+#cArrow.off .sh{border-left-color:#49586a;filter:none;}
+#cArrow.off .ln{background:linear-gradient(90deg,rgba(73,88,106,0),rgba(73,88,106,.35));}
+#cDist{position:absolute;left:-160px;top:-10px;width:320px;text-align:right;font-size:10.5px;color:var(--cyan);letter-spacing:.1em;}
+
+/* ---------- prompts ---------- */
+#prompt{position:absolute;left:50%;top:calc(50% + 42px);transform:translateX(-50%);text-align:center;
+  padding:6px 14px;background:rgba(8,12,18,.72);border:1px solid rgba(255,179,71,.45);border-radius:2px;
+  font-size:12.5px;color:#fff;opacity:0;transition:opacity .12s;}
+#prompt .k{display:inline-block;min-width:19px;padding:1px 5px;margin-right:6px;border:1px solid var(--amber);
+  color:var(--amber);font-size:10.5px;border-radius:2px;}
+#prompt.on{opacity:1;}
+
+#subtitle{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);max-width:min(74vw,880px);
+  text-align:center;padding:10px 20px;background:linear-gradient(90deg,rgba(4,8,12,0),rgba(6,10,15,.82) 12%,rgba(6,10,15,.82) 88%,rgba(4,8,12,0));
+  opacity:0;transition:opacity .3s;}
+#subtitle.on{opacity:1;}
+#subtitle .who{display:block;font-size:9.5px;letter-spacing:.3em;color:var(--cyan);margin-bottom:5px;}
+#subtitle .tx{font-size:16px;line-height:1.7;color:#eef4fa;letter-spacing:.03em;}
+
+#toast{position:absolute;left:50%;top:96px;transform:translateX(-50%);text-align:center;font-size:12px;
+  color:var(--amber);opacity:0;transition:opacity .35s;text-shadow:0 0 12px rgba(255,179,71,.4);letter-spacing:.06em;}
+#toast.on{opacity:1;}
+
+#keys{position:absolute;left:16px;bottom:12px;font-size:10px;color:#4f5c6a;letter-spacing:.06em;line-height:1.7;}
+#keys b{color:#8fa3b6;font-weight:600;}
+#stats{position:absolute;right:14px;bottom:12px;font-size:10px;color:#3f4b58;text-align:right;line-height:1.6;}
+
+/* ---------- overlays ---------- */
+.ov{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 45%,#0a1018 0%,#04060a 70%);}
+.ov.off{display:none;}
+.card{width:min(720px,90vw);padding:34px 40px;border:1px solid rgba(120,150,175,.25);
+  background:linear-gradient(180deg,rgba(9,14,20,.94),rgba(6,9,14,.96));box-shadow:0 30px 90px rgba(0,0,0,.8);}
+.card .kicker{font-size:10px;letter-spacing:.5em;color:var(--cyan);}
+.card h1{margin:10px 0 2px;font-size:38px;letter-spacing:.06em;font-weight:700;color:#fff;}
+.card h1 span{color:var(--amber);}
+.card .sub{font-size:12.5px;color:#8fa3b6;letter-spacing:.14em;margin-bottom:20px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px;font-size:12px;color:#9fb3c6;margin-bottom:20px;}
+.grid div b{color:#fff;font-weight:600;}
+.grid div i{color:var(--amber);font-style:normal;display:inline-block;min-width:74px;}
+.note{font-size:11.5px;line-height:1.85;color:#8b9dae;border-left:2px solid rgba(255,179,71,.5);padding-left:12px;margin-bottom:22px;}
+.btn{display:inline-block;padding:11px 26px;border:1px solid var(--amber);color:var(--amber);font-size:13px;
+  letter-spacing:.2em;cursor:pointer;background:rgba(255,179,71,.05);transition:.16s;}
+.btn:hover{background:var(--amber);color:#0a0d12;box-shadow:0 0 24px rgba(255,179,71,.35);}
+.btn+.btn{margin-left:12px;}
+.btn.gh{--amber:#7f8f9f;border-color:#4d5a68;color:#9fb3c6;background:none;}
+#end .card h1{font-size:31px;}
+#end .body{font-size:14px;line-height:2;color:#c4d3e0;white-space:pre-line;margin-bottom:20px;}
+#end .stamp{display:inline-block;font-size:11px;letter-spacing:.28em;padding:4px 12px;border:1px solid currentColor;margin-bottom:16px;}
+#loading{position:fixed;left:0;top:0;width:100%;height:100%;background:#04060a;display:flex;
+  align-items:center;justify-content:center;font-size:12px;letter-spacing:.3em;color:#7d8b9b;z-index:60;}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="hud">
+  <div id="cross"><div class="dot"></div></div>
+  <div id="top">
+    <div class="panel" id="clockBox">
+      <div class="lab mono">SYSTEM CLOCK</div>
+      <div id="clock" class="mono">23:50</div>
+      <div id="clockSub" class="mono">0017 次 · 00:17 进站</div>
+    </div>
+    <div class="panel" id="fragBox">
+      <div class="lab mono">RETRIEVED / 5</div>
+      <div id="fragList"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="mission">
+    <div class="t mono">DUTY LOG · 岚桥站</div>
+    <div class="h" id="misTitle">夜班调度席</div>
+    <div class="rule"></div>
+    <div class="o" id="misText">在 00:17 之前找回 <b>5 件</b>被抹掉的记录，回到信号室拉下总调度手柄。</div>
+  </div>
+  <div id="arrows"></div>
+
+  <div id="compass">
+    <div class="ring"></div>
+    <div id="cArrow" class="off"><div class="ln"></div><div class="sh"></div></div>
+    <div id="cDist" class="mono">--</div>
+  </div>
+
+  <div id="prompt"><span class="k">E</span><span id="promptTx"></span></div>
+  <div id="subtitle"><span class="who" id="subWho">站内广播</span><span class="tx" id="subTx"></span></div>
+  <div id="toast"></div>
+
+  <div id="keys">
+    <b>WASD</b> 移动 &nbsp;<b>Shift</b> 跑 &nbsp;<b>空格</b> 跳 &nbsp;<b>鼠标</b> 视角 &nbsp;<b>E</b> 交互 &nbsp;<b>F</b> 手电 &nbsp;<b>V</b> 语音 &nbsp;<b>Esc</b> 暂停
+  </div>
+  <div id="stats" class="mono"></div>
+</div>
+
+<div id="fx">
+  <div id="vignette"></div>
+  <div id="scan"></div>
+  <div id="dmg"></div>
+  <div id="warnflash"></div>
+  <div id="fade"></div>
+</div>
+
+<div class="ov" id="start">
+  <div class="card">
+    <div class="kicker mono">LAST METRO · 0017</div>
+    <h1>最后一班地铁 <span>0017</span></h1>
+    <div class="sub">岚桥站 · 夜班调度席 · 3D 第一人称</div>
+    <div class="grid">
+      <div><i>WASD</i>移动</div><div><i>空格</i>跳跃（能跳上半米高的台子）</div>
+      <div><i>Shift</i>快跑</div><div><i>E</i>交互 / 拾取</div>
+      <div><i>F</i>手电筒</div><div><i>V</i>语音广播 开关</div>
+      <div><i>Esc</i>暂停</div><div><i>R</i>重新开始</div>
+    </div>
+    <div class="note">
+      23:50。你接管岚桥站夜班调度席，最后一班车 0017 次将在 00:17 进站。<br>
+      站里有些东西被人抹掉了——五件记录，散在站台、检修笼和隧道里。<br>
+      在列车进站前把她们找回来，回到信号室拉下总调度手柄。<br>
+      <span style="color:#ff8b80">时间到 00:17 还没拉下手柄，它会像上一次那样驶进废弃四道。</span>
+    </div>
+    <div class="btn" id="btnStart">点击开始</div>
+  </div>
+</div>
+
+<div class="ov off" id="pause">
+  <div class="card">
+    <div class="kicker mono">PAUSED</div>
+    <h1>暂停</h1>
+    <div class="sub">岚桥站 · 夜班调度席</div>
+    <div class="note">鼠标已解锁。点击继续回到站台。</div>
+    <div class="btn" id="btnResume">继续</div>
+    <div class="btn gh" id="btnRestart2">重新开始</div>
+  </div>
+</div>
+
+<div class="ov off" id="end">
+  <div class="card">
+    <div class="kicker mono" id="endKick">END</div>
+    <h1 id="endTitle">—</h1>
+    <div class="stamp mono" id="endStamp">—</div>
+    <div class="body" id="endBody">—</div>
+    <div class="btn" id="btnAgain">再来一次</div>
+  </div>
+</div>
+
+<div id="loading" class="mono">正在建造岚桥站 …</div>
+
+<script>
+"use strict";
+/* ============================================================================
+   最后一班地铁 0017 · 3D 岚桥站
+   纯手写 WebGL（无任何外部依赖），双击即玩
+   ========================================================================== */
+
+const $  = s => document.querySelector(s);
+const clampf = (v,a,b)=> v<a?a:(v>b?b:v);
+const lerpf  = (a,b,t)=> a+(b-a)*t;
+const rnd    = (a,b)=> a+Math.random()*(b-a);
+const rndi   = (a,b)=> Math.floor(rnd(a,b+1));
+const TAU = Math.PI*2, DEG = Math.PI/180;
+
+/* ============================ 矩阵 ============================ */
+function m4(){ return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]); }
+function m4persp(out,fovy,asp,n,f){
+  const t = 1/Math.tan(fovy/2);
+  out[0]=t/asp; out[1]=0; out[2]=0;  out[3]=0;
+  out[4]=0;     out[5]=t; out[6]=0;  out[7]=0;
+  out[8]=0;     out[9]=0; out[10]=(f+n)/(n-f); out[11]=-1;
+  out[12]=0;    out[13]=0;out[14]=2*f*n/(n-f); out[15]=0;
+  return out;
+}
+function m4mul(out,a,b){
+  for(let i=0;i<4;i++){
+    const b0=b[i*4],b1=b[i*4+1],b2=b[i*4+2],b3=b[i*4+3];
+    out[i*4  ]=a[0]*b0+a[4]*b1+a[8 ]*b2+a[12]*b3;
+    out[i*4+1]=a[1]*b0+a[5]*b1+a[9 ]*b2+a[13]*b3;
+    out[i*4+2]=a[2]*b0+a[6]*b1+a[10]*b2+a[14]*b3;
+    out[i*4+3]=a[3]*b0+a[7]*b1+a[11]*b2+a[15]*b3;
+  }
+  return out;
+}
+function m4view(out,px,py,pz,yaw,pitch,roll){
+  const cy=Math.cos(yaw), sy=Math.sin(yaw);
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  const cr=Math.cos(roll||0), sr=Math.sin(roll||0);
+  let fx=sy*cp, fy=sp, fz=-cy*cp;
+  let rx=cy,    ry=0,  rz=sy;
+  let ux=ry*fz-rz*fy, uy=rz*fx-rx*fz, uz=rx*fy-ry*fx;
+  if(roll){ // 绕视线轴滚一点（受击/晃动）
+    const r2x=rx*cr+ux*sr, r2y=ry*cr+uy*sr, r2z=rz*cr+uz*sr;
+    const u2x=ux*cr-rx*sr, u2y=uy*cr-ry*sr, u2z=uz*cr-rz*sr;
+    rx=r2x;ry=r2y;rz=r2z; ux=u2x;uy=u2y;uz=u2z;
+  }
+  out[0]=rx; out[1]=ux; out[2]=-fx; out[3]=0;
+  out[4]=ry; out[5]=uy; out[6]=-fy; out[7]=0;
+  out[8]=rz; out[9]=uz; out[10]=-fz; out[11]=0;
+  out[12]=-(rx*px+ry*py+rz*pz);
+  out[13]=-(ux*px+uy*py+uz*pz);
+  out[14]=  fx*px+fy*py+fz*pz;
+  out[15]=1;
+  return out;
+}
+function m4trs(out,tx,ty,tz,ry,sx,sy,sz){
+  const c=Math.cos(ry), s=Math.sin(ry);
+  out[0]=c*sx; out[1]=0;  out[2]=-s*sx; out[3]=0;
+  out[4]=0;    out[5]=sy; out[6]=0;     out[7]=0;
+  out[8]=s*sz; out[9]=0;  out[10]=c*sz; out[11]=0;
+  out[12]=tx;  out[13]=ty;out[14]=tz;   out[15]=1;
+  return out;
+}
+function m3nrm(out,ry,sx,sy,sz){
+  const c=Math.cos(ry), s=Math.sin(ry);
+  const ix=1/(sx||1), iy=1/(sy||1), iz=1/(sz||1);
+  out[0]=c*ix; out[1]=0;   out[2]=-s*ix;
+  out[3]=0;    out[4]=iy;  out[5]=0;
+  out[6]=s*iz; out[7]=0;   out[8]=c*iz;
+  return out;
+}
+
+/* ============================ 渲染器 ============================ */
+const canvas = $("#gl");
+const glOpt = {antialias:true, alpha:false, depth:true, stencil:false,
+               premultipliedAlpha:false, powerPreference:"high-performance"};
+let gl = canvas.getContext("webgl", glOpt) || canvas.getContext("experimental-webgl", glOpt);
+if(!gl){ document.body.innerHTML = "<div style='padding:40px;color:#fff;font-size:14px'>你的浏览器不支持 WebGL，请用 Chrome / Edge 打开。</div>"; }
+
+const MAXL = 10;
+const VS_MAIN = [
+"attribute vec3 aPos; attribute vec3 aNrm; attribute vec2 aUV; attribute vec3 aCol; attribute float aEmi;",
+"uniform mat4 uProj, uView, uModel; uniform mat3 uNMat;",
+"varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying vec3 vCol; varying float vEmi;",
+"void main(){",
+"  vec4 w = uModel*vec4(aPos,1.0);",
+"  vW = w.xyz; vN = uNMat*aNrm; vUV = aUV; vCol = aCol; vEmi = aEmi;",
+"  gl_Position = uProj*uView*w;",
+"}"].join("\n");
+
+const FS_MAIN = [
+"#ifdef GL_FRAGMENT_PRECISION_HIGH","precision highp float;","#else","precision mediump float;","#endif",
+"varying vec3 vW; varying vec3 vN; varying vec2 vUV; varying vec3 vCol; varying float vEmi;",
+"uniform vec3 uCam; uniform vec3 uFogCol; uniform float uFogDen; uniform float uTime;",
+"uniform vec3 uTint; uniform float uAlpha; uniform float uUnlit; uniform float uSpec; uniform float uEmiBoost;",
+"uniform sampler2D uTex; uniform float uUseTex; uniform float uEmisSelf;",
+"uniform int uLCount; uniform vec3 uLPos[10]; uniform vec3 uLCol[10]; uniform float uLRad[10];",
+"uniform vec3 uDirCol; uniform vec3 uDirVec;",
+"void main(){",
+"  vec3 base = vCol*uTint;",
+"  float specMul = uSpec; float alpha = uAlpha;",
+"  if(uUseTex>0.5){ vec4 t = texture2D(uTex, vUV); base *= t.rgb; alpha *= t.a; }",
+"  vec3 N = normalize(vN);",
+"  vec3 V = normalize(uCam - vW);",
+"  vec3 col;",
+"  if(uUnlit>0.5){",
+"    col = base*(1.0+0.55*vEmi);",
+"  } else {",
+"    vec3 lit = vec3(0.060,0.068,0.090)*base;",
+"    lit += base*uDirCol*max(dot(N,normalize(uDirVec)),0.0)*1.6;",
+"    vec3 spec = vec3(0.0);",
+"    for(int i=0;i<10;i++){",
+"      if(i>=uLCount) break;",
+"      vec3 d = uLPos[i]-vW; float dist = length(d)+0.0001; vec3 L = d/dist;",
+"      float tt = dist/uLRad[i]; float a = 1.0/(1.0+4.0*tt*tt);",
+"      float ndl = max(dot(N,L),0.0);",
+"      vec3 diff = uLCol[i]*a*(ndl*0.80+0.20);",
+"      vec3 H = normalize(L+V);",
+"      spec += uLCol[i]*a*pow(max(dot(N,H),0.0),48.0)*specMul;",
+"      lit += diff*base;",
+"    }",
+"    col = lit + spec;",
+"  }",
+"  col += vCol*vEmi*uEmiBoost;",
+"  float fd = length(uCam - vW);",
+"  float fg = 1.0 - exp(-pow(uFogDen*fd,2.0));",
+"  col = mix(col, uFogCol, clamp(fg,0.0,1.0));",
+"  gl_FragColor = vec4(col, alpha);",
+"}"].join("\n");
+
+const VS_SPR = [
+"attribute vec2 aPos; attribute vec2 aUV2;",
+"uniform mat4 uProj, uView; uniform vec3 uRight, uUp, uCenter; uniform float uSize;",
+"varying vec2 vUV;",
+"void main(){",
+"  vUV = aUV2;",
+"  vec3 p = uCenter + uRight*(aPos.x*uSize) + uUp*(aPos.y*uSize);",
+"  gl_Position = uProj*uView*vec4(p,1.0);",
+"}"].join("\n");
+const FS_SPR = [
+"precision mediump float;",
+"varying vec2 vUV; uniform vec3 uGlowCol; uniform float uAlpha; uniform sampler2D uTex;",
+"void main(){",
+"  vec4 t = texture2D(uTex, vUV);",
+"  gl_FragColor = vec4(uGlowCol*t.rgb, t.a*uAlpha);",
+"}"].join("\n");
+
+function mkShader(type,src){
+  const s = gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)+"\n"+src);
+  return s;
+}
+function mkProg(vs,fs){
+  const p = gl.createProgram();
+  gl.attachShader(p,mkShader(gl.VERTEX_SHADER,vs));
+  gl.attachShader(p,mkShader(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+const PROG = mkProg(VS_MAIN,FS_MAIN);
+const PROG_S = mkProg(VS_SPR,FS_SPR);
+
+function locs(p,names){ const o={}; names.forEach(n=>o[n]=gl.getUniformLocation(p,n)); return o; }
+const U = locs(PROG,["uProj","uView","uModel","uNMat","uCam","uFogCol","uFogDen","uTime","uTint","uAlpha",
+  "uUnlit","uSpec","uEmiBoost","uTex","uUseTex","uEmisSelf","uLCount","uLPos[0]","uLCol[0]","uLRad[0]","uDirCol","uDirVec"]);
+const US = locs(PROG_S,["uProj","uView","uRight","uUp","uCenter","uSize","uGlowCol","uAlpha","uTex"]);
+const A = {pos:gl.getAttribLocation(PROG,"aPos"), nrm:gl.getAttribLocation(PROG,"aNrm"),
+           uv:gl.getAttribLocation(PROG,"aUV"),  col:gl.getAttribLocation(PROG,"aCol"),
+           emi:gl.getAttribLocation(PROG,"aEmi")};
+const AS = {pos:gl.getAttribLocation(PROG_S,"aPos"), uv:gl.getAttribLocation(PROG_S,"aUV2")};
+for(let i=0;i<MAXL;i++){ U["uLPos["+i+"]"]=gl.getUniformLocation(PROG,"uLPos["+i+"]");
+  U["uLCol["+i+"]"]=gl.getUniformLocation(PROG,"uLCol["+i+"]"); U["uLRad["+i+"]"]=gl.getUniformLocation(PROG,"uLRad["+i+"]"); }
+
+gl.enable(gl.DEPTH_TEST);
+gl.enable(gl.CULL_FACE);
+gl.cullFace(gl.BACK);
+
+let VW=1, VH=1, DPR=1, RSCALE=1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 1.75);
+  RSCALE = Math.min(RSCALE, 1);
+  const w = Math.max(2,Math.floor(innerWidth *DPR*RSCALE));
+  const h = Math.max(2,Math.floor(innerHeight*DPR*RSCALE));
+  if(canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
+  VW=w; VH=h;
+  gl.viewport(0,0,w,h);
+}
+
+/* ============================ 程序化贴图 ============================ */
+function cv(w,h){ const c=document.createElement("canvas"); c.width=w; c.height=h; return c; }
+function grain(ctx,w,h,amt,seedTint){
+  const img = ctx.getImageData(0,0,w,h), d = img.data;
+  for(let i=0;i<d.length;i+=4){
+    const n = (Math.random()-0.5)*amt;
+    d[i]  = clampf(d[i]  +n,0,255);
+    d[i+1]= clampf(d[i+1]+n,0,255);
+    d[i+2]= clampf(d[i+2]+n,0,255);
+  }
+  ctx.putImageData(img,0,0);
+}
+function speckle(ctx,w,h,n,size,colors){
+  for(let i=0;i<n;i++){
+    ctx.globalAlpha = rnd(0.05,0.25);
+    ctx.fillStyle = colors[rndi(0,colors.length-1)];
+    const s = rnd(size*0.4,size);
+    ctx.fillRect(rnd(0,w),rnd(0,h),s,s*rnd(0.5,2));
+  }
+  ctx.globalAlpha = 1;
+}
+function streak(ctx,x,y,w,h,alpha,col){
+  const g = ctx.createLinearGradient(x,y,x,y+h);
+  g.addColorStop(0,"rgba("+col+",0)"); g.addColorStop(0.25,"rgba("+col+","+alpha+")");
+  g.addColorStop(1,"rgba("+col+",0)");
+  ctx.fillStyle=g; ctx.fillRect(x,y,w,h);
+}
+function texOf(c,rep,noMip){
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,c);
+  const pot = (c.width&(c.width-1))===0 && (c.height&(c.height-1))===0;
+  if(pot && !noMip){ gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); }
+  else { gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); }
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S, rep?gl.REPEAT:gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T, rep?gl.REPEAT:gl.CLAMP_TO_EDGE);
+  return t;
+}
+
+/* 地面：花岗岩地砖（贴图覆盖 4m） */
+const tFloor = (()=>{
+  const S=512, c=cv(S,S), x=c.getContext("2d");
+  x.fillStyle="#3f444b"; x.fillRect(0,0,S,S);
+  const n=8, u=S/n;
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+    const v = rndi(0,3);
+    const base = ["#585e66","#4e545c","#61676f","#474d55"][v];
+    x.fillStyle=base; x.fillRect(i*u+1.2,j*u+1.2,u-2.4,u-2.4);
+    const g=x.createLinearGradient(i*u,j*u,i*u+u,j*u+u);
+    g.addColorStop(0,"rgba(255,255,255,0.055)"); g.addColorStop(0.5,"rgba(255,255,255,0)");
+    g.addColorStop(1,"rgba(0,0,0,0.10)");
+    x.fillStyle=g; x.fillRect(i*u+1.2,j*u+1.2,u-2.4,u-2.4);
+  }
+  speckle(x,S,S,900,3,["#2b2f35","#6f757d","#8d939b"]);
+  for(let i=0;i<16;i++) streak(x,rnd(0,S),rnd(0,S),rnd(6,26),rnd(40,150),rnd(0.03,0.09),"20,22,26");
+  grain(x,S,S,16);
+  return texOf(c,true);
+})();
+
+/* 混凝土墙（覆盖 4m） */
+const tConc = (()=>{
+  const S=512, c=cv(S,S), x=c.getContext("2d");
+  x.fillStyle="#4b5058"; x.fillRect(0,0,S,S);
+  for(let i=0;i<5;i++){
+    x.globalAlpha=rnd(0.05,0.13); x.fillStyle= i%2?"#5c626b":"#3c4149";
+    x.fillRect(rnd(0,S),rnd(0,S),rnd(60,300),rnd(60,300));
+  }
+  x.globalAlpha=1;
+  speckle(x,S,S,1400,2.5,["#3a3f46","#5f656e","#7a828c"]);
+  // 面板拼缝
+  x.strokeStyle="rgba(20,23,28,0.55)"; x.lineWidth=2;
+  for(let i=0;i<=2;i++){ x.beginPath(); x.moveTo(0,i*256+0.5); x.lineTo(S,i*256+0.5); x.stroke(); }
+  for(let i=0;i<6;i++) streak(x,rnd(0,S),0,rnd(4,16),rnd(100,300),rnd(0.04,0.12),"18,20,24");
+  grain(x,S,S,13);
+  return texOf(c,true);
+})();
+
+/* 站台墙面金属挂板（覆盖 2m） */
+const tPanel = (()=>{
+  const S=512, c=cv(S,S), x=c.getContext("2d");
+  x.fillStyle="#6a6f76"; x.fillRect(0,0,S,S);
+  for(let i=0;i<4;i++){
+    const g=x.createLinearGradient(i*128,0,i*128+128,0);
+    g.addColorStop(0,"#767c84"); g.addColorStop(0.45,"#6c7179"); g.addColorStop(1,"#5f646b");
+    x.fillStyle=g; x.fillRect(i*128+2,0,124,S);
+    x.fillStyle="rgba(15,18,22,0.7)"; x.fillRect(i*128,0,2.4,S);
+    x.fillStyle="rgba(255,255,255,0.06)"; x.fillRect(i*128+2.4,0,2,S);
+  }
+  x.fillStyle="rgba(22,26,30,0.65)"; x.fillRect(0,168,S,3); x.fillRect(0,340,S,2);
+  speckle(x,S,S,600,2,["#565b62","#7d848d"]);
+  for(let i=0;i<10;i++) streak(x,rnd(0,S),rnd(0,S*0.6),rnd(5,20),rnd(50,200),rnd(0.03,0.08),"16,18,22");
+  grain(x,S,S,10);
+  return texOf(c,true);
+})();
+
+/* 吊顶（覆盖 4m） */
+const tCeil = (()=>{
+  const S=512, c=cv(S,S), x=c.getContext("2d");
+  x.fillStyle="#33383f"; x.fillRect(0,0,S,S);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+    x.fillStyle = (i+j)%2 ? "#383d45" : "#32373e";
+    x.fillRect(i*128+1.5,j*128+1.5,125,125);
+  }
+  x.strokeStyle="rgba(12,14,18,0.8)"; x.lineWidth=3;
+  for(let i=0;i<=4;i++){ x.beginPath(); x.moveTo(i*128,0); x.lineTo(i*128,S); x.stroke();
+    x.beginPath(); x.moveTo(0,i*128); x.lineTo(S,i*128); x.stroke(); }
+  speckle(x,S,S,800,3,["#2a2e34","#454b53"]);
+  for(let i=0;i<10;i++) streak(x,rnd(0,S),rnd(0,S),rnd(8,40),rnd(60,220),rnd(0.05,0.14),"14,16,20");
+  grain(x,S,S,11);
+  return texOf(c,true);
+})();
+
+/* 站台边缘黄色盲道（覆盖 0.5m） */
+const tEdge = (()=>{
+  const S=128, c=cv(S,S), x=c.getContext("2d");
+  x.fillStyle="#c9a13a"; x.fillRect(0,0,S,S);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+    const cx=i*32+16, cy=j*32+16;
+    x.fillStyle="#b98f2c"; x.beginPath(); x.arc(cx+1.5,cy+1.5,9,0,TAU); x.fill();
+    x.fillStyle="#e2bb56"; x.beginPath(); x.arc(cx,cy,9,0,TAU); x.fill();
+    x.fillStyle="#f0d089"; x.beginPath(); x.arc(cx-2.5,cy-2.5,4.5,0,TAU); x.fill();
+  }
+  speckle(x,S,S,150,2,["#8f6f22","#d8c07a"]);
+  grain(x,S,S,14);
+  return texOf(c,true);
+})();
+
+/* 拉丝金属（覆盖 1m） */
+const tMetal = (()=>{
+  const S=256, c=cv(S,S), x=c.getContext("2d");
+  x.fillStyle="#7c828a"; x.fillRect(0,0,S,S);
+  for(let i=0;i<420;i++){
+    x.globalAlpha=rnd(0.03,0.14);
+    x.fillStyle= Math.random()<0.5?"#9298a1":"#5f656d";
+    x.fillRect(0,rnd(0,S),S,rnd(0.6,1.8));
+  }
+  x.globalAlpha=1;
+  speckle(x,S,S,300,2,["#6a7078","#8d949d"]);
+  grain(x,S,S,8);
+  return texOf(c,true);
+})();
+
+/* 隧道墙（烟熏、脏）覆盖 4m */
+const tTunnel = (()=>{
+  const S=512, c=cv(S,S), x=c.getContext("2d");
+  x.fillStyle="#2c3037"; x.fillRect(0,0,S,S);
+  for(let i=0;i<7;i++){
+    x.globalAlpha=rnd(0.06,0.16); x.fillStyle= Math.random()<0.6?"#1a1d22":"#3b4048";
+    x.beginPath(); x.ellipse(rnd(0,S),rnd(0,S),rnd(70,240),rnd(50,200),rnd(0,3),0,TAU); x.fill();
+  }
+  x.globalAlpha=1;
+  for(let i=0;i<26;i++) streak(x,rnd(0,S),rnd(-40,200),rnd(6,30),rnd(120,380),rnd(0.05,0.18),"10,11,14");
+  speckle(x,S,S,900,3,["#202429","#3d434b"]);
+  grain(x,S,S,12);
+  return texOf(c,true);
+})();
+
+/* 车窗玻璃 */
+const tGlass = (()=>{
+  const S=128, c=cv(S,S), x=c.getContext("2d");
+  const g=x.createLinearGradient(0,0,S,S);
+  g.addColorStop(0,"#16202b"); g.addColorStop(0.45,"#22303d"); g.addColorStop(1,"#0e151c");
+  x.fillStyle=g; x.fillRect(0,0,S,S);
+  x.globalAlpha=0.35; x.fillStyle="#9fc6dd";
+  x.beginPath(); x.moveTo(0,S*0.75); x.lineTo(S*0.55,0); x.lineTo(S*0.8,0); x.lineTo(S*0.2,S); x.closePath(); x.fill();
+  x.globalAlpha=1; grain(x,S,S,10);
+  return texOf(c,false);
+})();
+
+/* 站牌 / 指示牌 */
+function boardTex(w,h,draw){
+  const c=cv(w,h), x=c.getContext("2d");
+  draw(x,w,h); return texOf(c,false,true);
+}
+const tSignStation = boardTex(512,128,(x,w,h)=>{
+  x.fillStyle="#0b0f14"; x.fillRect(0,0,w,h);
+  x.strokeStyle="#dfe7ef"; x.lineWidth=5; x.strokeRect(8,8,w-16,h-16);
+  x.fillStyle="#ffffff"; x.textAlign="center"; x.textBaseline="middle";
+  x.font='700 62px "Microsoft YaHei",sans-serif';
+  x.fillText("岚 桥 站", w/2, h/2-6);
+  x.font='400 22px "Consolas",monospace'; x.fillStyle="#9fd0ea";
+  x.fillText("LANQIAO  STATION", w/2, h-28);
+});
+const tSignExit = boardTex(512,160,(x,w,h)=>{
+  x.fillStyle="#0d3b23"; x.fillRect(0,0,w,h);
+  x.strokeStyle="#8fe0b0"; x.lineWidth=4; x.strokeRect(7,7,w-14,h-14);
+  x.fillStyle="#c8f5dc"; x.textAlign="left"; x.textBaseline="middle";
+  x.font='700 52px "Microsoft YaHei",sans-serif'; x.fillText("出口 EXIT", 40, 56);
+  x.font='400 30px "Microsoft YaHei",sans-serif'; x.fillStyle="#9fe8c4";
+  x.fillText("A 口 · 临江北路", 40, 112);
+  x.fillStyle="#c8f5dc"; x.beginPath();
+  x.moveTo(w-88,44); x.lineTo(w-40,80); x.lineTo(w-88,116); x.closePath(); x.fill();
+});
+const tSignLoop = boardTex(512,140,(x,w,h)=>{
+  x.fillStyle="#b8860b"; x.fillRect(0,0,w,h);
+  x.fillStyle="#1a1408"; x.fillRect(6,6,w-12,h-12);
+  x.fillStyle="#ffcf5c"; x.textAlign="center"; x.textBaseline="middle";
+  x.font='700 46px "Microsoft YaHei",sans-serif'; x.fillText("检 修 环 线", w/2, 50);
+  x.font='400 20px "Consolas",monospace'; x.fillStyle="#d8a53a";
+  x.fillText("MAINTENANCE  LOOP  K3", w/2, 100);
+});
+const tSignDanger = boardTex(256,256,(x,w,h)=>{
+  x.fillStyle="#c9a13a"; x.beginPath(); x.moveTo(w/2,16); x.lineTo(w-16,h-30); x.lineTo(16,h-30); x.closePath(); x.fill();
+  x.fillStyle="#1a1408"; x.font='700 120px "Microsoft YaHei",sans-serif';
+  x.textAlign="center"; x.textBaseline="middle"; x.fillText("!", w/2, h/2+6);
+});
+const tScreen = boardTex(256,256,(x,w,h)=>{
+  x.fillStyle="#04120c"; x.fillRect(0,0,w,h);
+  x.fillStyle="#39ff9e"; x.font='400 17px "Consolas",monospace'; x.textBaseline="top";
+  const rows=["DUTY  CONSOLE","0017  ON  LINE 2","SIG 5  FB  -0.5s",">> WARN  TRACK 4","BLOCKED","SYS  TIME  23:50"];
+  rows.forEach((s,i)=>{ x.globalAlpha = 0.55+0.45*Math.random(); x.fillText(s,14,16+i*30); });
+  x.globalAlpha=1; x.fillStyle="rgba(0,0,0,0.35)";
+  for(let i=0;i<h;i+=3) x.fillRect(0,i,w,1);
+  x.strokeStyle="#39ff9e"; x.lineWidth=6; x.strokeRect(3,3,w-6,h-6);
+});
+const tPosters = [0,1,2].map(k=> boardTex(256,384,(x,w,h)=>{
+  const pal = [["#123049","#2d7fb8","#8fd8ff"],["#3a1330","#a83a7a","#ffc0e0"],["#1c3a22","#4f9a5a","#d8f0b0"]][k];
+  const g=x.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,pal[0]); g.addColorStop(0.6,pal[1]); g.addColorStop(1,pal[0]);
+  x.fillStyle=g; x.fillRect(0,0,w,h);
+  x.globalAlpha=0.35;
+  for(let i=0;i<7;i++){ x.fillStyle=pal[2];
+    x.beginPath(); x.arc(rnd(0,w),rnd(0,h*0.55),rnd(20,80),0,TAU); x.fill(); }
+  x.globalAlpha=1;
+  x.fillStyle="rgba(255,255,255,0.92)";
+  const tx=[["岚桥老街","步行 5 分钟"],["今夜有戏","临江大剧院"],["雨季出行","请注意防滑"]][k];
+  x.textAlign="left"; x.textBaseline="top";
+  x.font='700 40px "Microsoft YaHei",sans-serif'; x.fillText(tx[0],22,44);
+  x.fillStyle="rgba(255,255,255,0.75)"; x.font='400 22px "Microsoft YaHei",sans-serif';
+  x.fillText(tx[1],22,100);
+  x.fillStyle="rgba(255,255,255,0.18)";
+  x.beginPath(); x.moveTo(0,h-120); x.lineTo(w,h-190); x.lineTo(w,h); x.lineTo(0,h); x.closePath(); x.fill();
+  grain(x,w,h,8);
+}));
+const tNotice = boardTex(384,256,(x,w,h)=>{
+  x.fillStyle="#e8e2d4"; x.fillRect(0,0,w,h);
+  x.fillStyle="#20242a"; x.font='700 26px "Microsoft YaHei",sans-serif'; x.textAlign="left"; x.textBaseline="top";
+  x.fillText("乘 车 须 知",18,18);
+  x.fillStyle="#33383f"; x.font='400 15px "Microsoft YaHei",sans-serif';
+  ["1. 请在黄线外排队候车","2. 末班车后站台清场","3. 站台下方带电，禁止进入","4. 终点站：临江北"].forEach((s,i)=>x.fillText(s,18,64+i*36));
+  grain(x,w,h,12);
+});
+const tGlow = (()=>{
+  const S=128, c=cv(S,S), x=c.getContext("2d");
+  const g=x.createRadialGradient(S/2,S/2,0,S/2,S/2,S/2);
+  g.addColorStop(0,"rgba(255,255,255,1)"); g.addColorStop(0.16,"rgba(255,255,255,0.62)");
+  g.addColorStop(0.42,"rgba(255,255,255,0.20)"); g.addColorStop(0.75,"rgba(255,255,255,0.045)");
+  g.addColorStop(1,"rgba(255,255,255,0)");
+  x.fillStyle=g; x.fillRect(0,0,S,S);
+  return texOf(c,false,true);
+})();
+/* 时钟面板（每帧重绘） */
+const clockCv = cv(512,160);
+const tClock = texOf(clockCv,false,true);
+function drawClock(txt,sub,warn){
+  const x=clockCv.getContext("2d");
+  x.fillStyle="#05070a"; x.fillRect(0,0,512,160);
+  x.strokeStyle = warn?"#ff5a4d":"#2b3542"; x.lineWidth=6; x.strokeRect(6,6,500,148);
+  x.textAlign="center"; x.textBaseline="middle";
+  x.font='700 108px "Consolas","Courier New",monospace';
+  x.fillStyle = warn?"#ff5a4d":"#ffb347";
+  x.shadowColor = warn?"#ff5a4d":"#ffb347"; x.shadowBlur=26;
+  x.fillText(txt,256,76); x.shadowBlur=0;
+  x.font='400 22px "Microsoft YaHei",sans-serif'; x.fillStyle="#7d8b9b";
+  x.fillText(sub,256,136);
+  gl.bindTexture(gl.TEXTURE_2D,tClock);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,clockCv);
+}
+
+/* ============================ 材质表 ============================ */
+const MAT = {
+  floor:    {tex:tFloor,  uv:0.25, spec:0.18},
+  conc:     {tex:tConc,   uv:0.25, spec:0.04},
+  panel:    {tex:tPanel,  uv:0.5,  spec:0.26},
+  ceil:     {tex:tCeil,   uv:0.25, spec:0.05},
+  edge:     {tex:tEdge,   uv:2.4,  spec:0.10},
+  metal:    {tex:tMetal,  uv:1.0,  spec:0.55},
+  metalD:   {tex:tMetal,  uv:1.0,  spec:0.40, tint:[0.55,0.57,0.60]},
+  metalY:   {tex:tMetal,  uv:1.0,  spec:0.40, tint:[1.05,0.85,0.42]},
+  rust:     {tex:tTunnel, uv:0.3,  spec:0.06, tint:[0.85,0.78,0.72]},
+  tunnel:   {tex:tTunnel, uv:0.25, spec:0.05},
+  glass:    {tex:tGlass,  uv:0.5,  spec:0.75},
+  plain:    {tex:null,    uv:1.0,  spec:0.12},
+  rubber:   {tex:null,    uv:1.0,  spec:0.05, tint:[0.30,0.31,0.33]},
+  dark:     {tex:null,    uv:1.0,  spec:0.05, tint:[0.16,0.17,0.19]},
+  white:    {tex:null,    uv:1.0,  spec:0.10},
+  unlit:    {tex:null,    uv:1.0,  unlit:1, emisBoost:1.0},
+  lamp:     {tex:null,    uv:1.0,  unlit:1, emisBoost:1.0},
+  poster:   {tex:tPosters[0], uv:1, unlit:1, emisBoost:0.9},
+  poster2:  {tex:tPosters[1], uv:1, unlit:1, emisBoost:0.9},
+  poster3:  {tex:tPosters[2], uv:1, unlit:1, emisBoost:0.9},
+  signSt:   {tex:tSignStation, uv:1, unlit:1, emisBoost:0.85},
+  signEx:   {tex:tSignExit,    uv:1, unlit:1, emisBoost:0.85},
+  signLoop: {tex:tSignLoop,    uv:1, unlit:1, emisBoost:0.85},
+  signDg:   {tex:tSignDanger,  uv:1, unlit:1, emisBoost:0.6},
+  notice:   {tex:tNotice,      uv:1, unlit:1, emisBoost:0.45},
+  screen:   {tex:tScreen,      uv:1, unlit:1, emisBoost:0.95},
+  clock:    {tex:tClock,       uv:1, unlit:1, emisBoost:1.25},
+  trainA:   {tex:tMetal,  uv:0.6,  spec:0.62, tint:[0.86,0.88,0.92]},
+  trainB:   {tex:null,    uv:1.0,  spec:0.55, tint:[0.10,0.13,0.20]},
+  trainC:   {tex:null,    uv:1.0,  spec:0.40, tint:[0.72,0.18,0.16]},
+  trainD:   {tex:null,    uv:1.0,  spec:0.30, tint:[0.06,0.07,0.09]},
+  trainW:   {tex:tGlass,  uv:0.5,  spec:0.85, tint:[0.85,0.92,1.0]},
+  headl:    {tex:null,    uv:1.0,  unlit:1, emisBoost:1.4},
+  hazard:   {tex:null,    uv:1.0,  spec:0.2, tint:[1,1,1]},
+  cable:    {tex:null,    uv:1.0,  spec:0.2, tint:[0.22,0.24,0.26]},
+  item:     {tex:null,    uv:1.0,  unlit:1, emisBoost:2.4, spec:0.9}
+};
+const I3 = new Float32Array([1,0,0,0,1,0,0,0,1]);
+const NOWM = m4();
+
+/* ============================ 几何构造 ============================ */
+function newBatch(){ return {groups:new Map()}; }
+function grp(b,n){ let g=b.groups.get(n); if(!g){ g={p:[],n:[],u:[],c:[],e:[]}; b.groups.set(n,g); } return g; }
+function pv(g,x,y,z,nx,ny,nz,u,v,c,e){
+  g.p.push(x,y,z); g.n.push(nx,ny,nz); g.u.push(u,v);
+  g.c.push(c[0],c[1],c[2]); g.e.push(e===undefined?0:e);
+}
+function quadN(g,a,b,c,d,uv,col,e,nexpect){
+  let ux=b[0]-a[0], uy=b[1]-a[1], uz=b[2]-a[2];
+  let vx=c[0]-a[0], vy=c[1]-a[1], vz=c[2]-a[2];
+  let nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+  const L=Math.hypot(nx,ny,nz)||1; nx/=L; ny/=L; nz/=L;
+  if(nexpect){ const dt=nx*nexpect[0]+ny*nexpect[1]+nz*nexpect[2];
+    if(dt<0){ const t=c; c=d; d=t; nx=-nx;ny=-ny;nz=-nz;
+      const tu=uv[2]; uv[2]=uv[3]; uv[3]=tu; } }
+  pv(g,a[0],a[1],a[2],nx,ny,nz,uv[0][0],uv[0][1],col,e);
+  pv(g,b[0],b[1],b[2],nx,ny,nz,uv[1][0],uv[1][1],col,e);
+  pv(g,c[0],c[1],c[2],nx,ny,nz,uv[2][0],uv[2][1],col,e);
+  pv(g,a[0],a[1],a[2],nx,ny,nz,uv[0][0],uv[0][1],col,e);
+  pv(g,c[0],c[1],c[2],nx,ny,nz,uv[2][0],uv[2][1],col,e);
+  pv(g,d[0],d[1],d[2],nx,ny,nz,uv[3][0],uv[3][1],col,e);
+}
+const FACEDEF = [
+  {n:[ 1,0,0], ax:2, ay:1, v:[[1,0,1],[1,0,0],[1,1,0],[1,1,1]], k:"x1"},
+  {n:[-1,0,0], ax:2, ay:1, v:[[0,0,0],[0,0,1],[0,1,1],[0,1,0]], k:"x0"},
+  {n:[0, 1,0], ax:0, ay:2, v:[[0,1,1],[1,1,1],[1,1,0],[0,1,0]], k:"y1"},
+  {n:[0,-1,0], ax:0, ay:2, v:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]], k:"y0"},
+  {n:[0,0, 1], ax:0, ay:1, v:[[0,0,1],[1,0,1],[1,1,1],[0,1,1]], k:"z1"},
+  {n:[0,0,-1], ax:0, ay:1, v:[[1,0,0],[0,0,0],[0,1,0],[1,1,0]], k:"z0"}
+];
+/* box: 世界坐标包围盒。o={uv, faces:["x1",...], skip:["y0"], uoff,voff} */
+function box(g,x0,y0,z0,x1,y1,z1,col,e,o){
+  o=o||{}; const uv = o.uv===undefined ? 1 : o.uv;
+  const sp=[x0,y0,z0,x1,y1,z1];
+  const lo=[Math.min(x0,x1),Math.min(y0,y1),Math.min(z0,z1)], hi=[Math.max(x0,x1),Math.max(y0,y1),Math.max(z0,z1)];
+  for(const F of FACEDEF){
+    if(o.faces && o.faces.indexOf(F.k)<0) continue;
+    if(o.skip && o.skip.indexOf(F.k)>=0) continue;
+    const P=[];
+    for(let i=0;i<4;i++){
+      const u=F.v[i];
+      P.push([lo[0]+u[0]*(hi[0]-lo[0]), lo[1]+u[1]*(hi[1]-lo[1]), lo[2]+u[2]*(hi[2]-lo[2])]);
+    }
+    const uvs = P.map(p=>[p[F.ax]*uv+(o.uoff||0), p[F.ay]*uv+(o.voff||0)]);
+    quadN(g,P[0],P[1],P[2],P[3],uvs,col,e,F.n);
+  }
+}
+/* 面片：y 高度的水平面 */
+function planeY(g,x0,z0,x1,z1,y,col,e,o){ o=o||{}; o.faces=["y1"]; box(g,x0,y-0.012,z0,x1,y+0.012,z1,col,e,o); }
+/* 沿 Z 挤出的轮廓（隧道/管道） */
+function extrude(g,profile,z0,z1,col,e,o){
+  o=o||{}; const uv=o.uv===undefined?1:o.uv;
+  let cx=0,cy=0; for(const p of profile){ cx+=p[0]; cy+=p[1]; }
+  cx/=profile.length; cy/=profile.length;
+  let acc=0;
+  for(let i=0;i<profile.length-1;i++){
+    const A=profile[i], B=profile[i+1];
+    const seg=Math.hypot(B[0]-A[0],B[1]-A[1]); 
+    let nx=(A[0]+B[0])/2-cx, ny=(A[1]+B[1])/2-cy;
+    const L=Math.hypot(nx,ny)||1; nx/=L; ny/=L;
+    const a=[A[0],A[1],z0], b=[B[0],B[1],z0], c=[B[0],B[1],z1], d=[A[0],A[1],z1];
+    quadN(g,a,b,c,d,[[z0*uv,acc*uv],[z0*uv,(acc+seg)*uv],[z1*uv,(acc+seg)*uv],[z1*uv,acc*uv]],
+          col,e,[nx,ny,0]);
+    acc+=seg;
+  }
+}
+/* 圆弧顶（隧道拱），法线朝圆心 */
+function arcCeil(g,cx,cy,r,z0,z1,seg,a0,a1,col,e,o){
+  o=o||{}; const uv=o.uv===undefined?0.25:o.uv;
+  let r0 = (o.r0===undefined? r : o.r0), r1=(o.r1===undefined? r : o.r1);
+  let acc=0;
+  const P=(i,z,r_) => { const a=lerpf(a0,a1,i/seg); return [cx+Math.cos(a)*r_, cy+Math.sin(a)*r_, z]; };
+  for(let i=0;i<seg;i++){
+    const a=lerpf(a0,a1,i/seg), b=lerpf(a0,a1,(i+1)/seg);
+    const seg_len = r*(b-a);
+    const q=[P(i,z0,r0), P(i,z1,r0), P(i+1,z1,r1), P(i+1,z0,r1)];
+    quadN(g,q[0],q[1],q[2],q[3],
+      [[z0*uv,acc*uv],[z1*uv,acc*uv],[z1*uv,(acc+seg_len)*uv],[z0*uv,(acc+seg_len)*uv]],
+      col,e,[-Math.cos((a+b)/2), -Math.sin((a+b)/2), 0]);
+    acc+=seg_len;
+  }
+}
+
+/* ============================ 上传 / 绘制 ============================ */
+function upload(batch){
+  const out=[];
+  batch.groups.forEach((g,name)=>{
+    const n=g.p.length/3; if(n<3) return;
+    const arr=new Float32Array(n*12);
+    for(let i=0;i<n;i++){
+      const o=i*12, o3=i*3, o2=i*2;
+      arr[o  ]=g.p[o3]; arr[o+1]=g.p[o3+1]; arr[o+2]=g.p[o3+2];
+      arr[o+3]=g.n[o3]; arr[o+4]=g.n[o3+1]; arr[o+5]=g.n[o3+2];
+      arr[o+6]=g.u[o2]; arr[o+7]=g.u[o2+1];
+      arr[o+8]=g.c[o3]; arr[o+9]=g.c[o3+1]; arr[o+10]=g.c[o3+2];
+      arr[o+11]=g.e[i];
+    }
+    const buf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,arr,gl.STATIC_DRAW);
+    out.push({mat:MAT[name]||MAT.plain, buf:buf, count:n});
+  });
+  return out;
+}
+const WHITE=[1,1,1];
+function setMat(m,tint,emiBoost){
+  gl.uniform1f(U.uUseTex, m.tex?1:0);
+  if(m.tex){ gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,m.tex); gl.uniform1i(U.uTex,0); }
+  const t = tint || m.tint || WHITE;
+  gl.uniform3f(U.uTint, t[0]*(m.tint&&tint?1:1), t[1], t[2]);
+  gl.uniform1f(U.uUnlit, m.unlit?1:0);
+  gl.uniform1f(U.uSpec, m.spec===undefined?0.1:m.spec);
+  gl.uniform1f(U.uAlpha, m.alpha===undefined?1:m.alpha);
+  gl.uniform1f(U.uEmiBoost, emiBoost===undefined?(m.emisBoost===undefined?1.4:m.emisBoost):emiBoost);
+}
+function drawList(list,model,nmat,tint){
+  gl.uniformMatrix4fv(U.uModel,false,model||NOWM);
+  gl.uniformMatrix3fv(U.uNMat,false,nmat||I3);
+  for(const e of list){
+    setMat(e.mat,tint);
+    gl.bindBuffer(gl.ARRAY_BUFFER,e.buf);
+    const S=48;
+    gl.vertexAttribPointer(A.pos,3,gl.FLOAT,false,S,0);
+    gl.vertexAttribPointer(A.nrm,3,gl.FLOAT,false,S,12);
+    gl.vertexAttribPointer(A.uv ,2,gl.FLOAT,false,S,24);
+    gl.vertexAttribPointer(A.col,3,gl.FLOAT,false,S,32);
+    gl.vertexAttribPointer(A.emi,1,gl.FLOAT,false,S,44);
+    gl.drawArrays(gl.TRIANGLES,0,e.count);
+  }
+}
+function enableAttribs(on){
+  [A.pos,A.nrm,A.uv,A.col,A.emi].forEach(a=>{ if(on) gl.enableVertexAttribArray(a); else gl.disableVertexAttribArray(a); });
+}
+
+/* 单位几何体（用于动态物件） */
+function unitBoxData(){
+  const b=newBatch(), g=grp(b,"plain");
+  box(g,-0.5,-0.5,-0.5,0.5,0.5,0.5,[1,1,1],0,{uv:1});
+  return b;
+}
+const G_UNITBOX = upload(unitBoxData());
+const G_UNITOCT = (()=>{
+  const b=newBatch(), g=grp(b,"plain");
+  const V=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  const T=[[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+  for(const t of T){
+    const a=V[t[0]],c=V[t[1]],d=V[t[2]];
+    let nx=(c[1]-a[1])*(d[2]-a[2])-(c[2]-a[2])*(d[1]-a[1]);
+    let ny=(c[2]-a[2])*(d[0]-a[0])-(c[0]-a[0])*(d[2]-a[2]);
+    let nz=(c[0]-a[0])*(d[1]-a[1])-(c[1]-a[1])*(d[0]-a[0]);
+    const L=Math.hypot(nx,ny,nz)||1; nx/=L;ny/=L;nz/=L;
+    [[a,[0,0]],[c,[1,0]],[d,[0.5,1]]].forEach(v=>pv(g,v[0][0],v[0][1],v[0][2],nx,ny,nz,v[1][0],v[1][1],[1,1,1],1));
+  }
+  return upload(b);
+})();
+const G_SPRQUAD = (()=>{
+  const buf=gl.createBuffer();
+  const d=new Float32Array([-0.5,-0.5, 0,1,  0.5,-0.5, 1,1,  0.5,0.5, 1,0,
+                            -0.5,-0.5, 0,1,  0.5,0.5, 1,0,  -0.5,0.5, 0,0]);
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,d,gl.STATIC_DRAW);
+  return buf;
+})();
+function drawSprite(center,size,col,alpha){
+  gl.useProgram(PROG_S);
+  gl.uniformMatrix4fv(US.uProj,false,PM); gl.uniformMatrix4fv(US.uView,false,VM);
+  gl.uniform3f(US.uRight,RV[0],RV[1],RV[2]); gl.uniform3f(US.uUp,UV[0],UV[1],UV[2]);
+  gl.uniform3f(US.uCenter,center[0],center[1],center[2]);
+  gl.uniform1f(US.uSize,size);
+  gl.uniform3f(US.uGlowCol,col[0],col[1],col[2]);
+  gl.uniform1f(US.uAlpha,alpha);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,tGlow); gl.uniform1i(US.uTex,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,G_SPRQUAD);
+  gl.vertexAttribPointer(AS.pos,2,gl.FLOAT,false,16,0);
+  gl.vertexAttribPointer(AS.uv,2,gl.FLOAT,false,16,8);
+  gl.enableVertexAttribArray(AS.pos); gl.enableVertexAttribArray(AS.uv);
+  gl.drawArrays(gl.TRIANGLES,0,6);
+  gl.disableVertexAttribArray(AS.pos); gl.disableVertexAttribArray(AS.uv);
+  gl.useProgram(PROG);
+}
+
+/* ============================ 世界参数 ============================ */
+const PX0=-18.0, PX1=0.0;        // 站台 x 范围（站台在 -x 一侧）
+const TX0=0.0,  TX1=8.0;         // 轨行区 x 范围
+const ZS0=-56.0, ZS1=56.0;       // 车站 z 范围
+const FY=0.0;                    // 站台面高
+const TY=-1.15;                  // 轨行区面高
+const CH=5.0;                    // 吊顶高
+const BORE_R=4.0, BORE_SP=1.0;   // 隧道拱半径 / 起拱高（拱心 x=4,y=1）
+const ZTUN=-200.0;               // 隧道远端
+
+const W = { cols:[], lights:[], floors:[], flicker:[] };
+function addCol(x0,z0,x1,z1,y1,tag){
+  W.cols.push({x0:Math.min(x0,x1), z0:Math.min(z0,z1), x1:Math.max(x0,x1), z1:Math.max(z0,z1),
+               y1:(y1===undefined?99:y1), tag:tag||""});
+}
+function addLight(x,y,z,c,r){
+  const L={p:[x,y,z], c:c, r:r};
+  W.lights.push(L); return L;
+}
+function addFloor(x0,z0,x1,z1,y){ W.floors.push({x0:x0,z0:z0,x1:x1,z1:z1,y:y}); }
+/* 画 + 加碰撞 */
+function solid(b,mat,c,x0,y0,z0,x1,y1,z1,col,e,o){
+  box(grp(b,mat),x0,y0,z0,x1,y1,z1,col||[1,1,1],e||0,o);
+  addCol(x0,z0,x1,z1,Math.max(y0,y1));
+}
+/* 面向 dir 的整块牌面（贴图铺满） */
+function board(b,mat,cx,cy,cz,w,h,dir,emis){
+  const g=grp(b,mat), e=(emis===undefined?0.7:emis), hw=w/2, hh=h/2;
+  const U=[[0,1],[1,1],[1,0],[0,0]];
+  let P;
+  if(dir==="x-") P=[[cx,cy-hh,cz+hw],[cx,cy-hh,cz-hw],[cx,cy+hh,cz-hw],[cx,cy+hh,cz+hw]];
+  else if(dir==="x+") P=[[cx,cy-hh,cz-hw],[cx,cy-hh,cz+hw],[cx,cy+hh,cz+hw],[cx,cy+hh,cz-hw]];
+  else if(dir==="z-") P=[[cx+hw,cy-hh,cz],[cx-hw,cy-hh,cz],[cx-hw,cy+hh,cz],[cx+hw,cy+hh,cz]];
+  else P=[[cx-hw,cy-hh,cz],[cx+hw,cy-hh,cz],[cx+hw,cy+hh,cz],[cx-hw,cy+hh,cz]];
+  const n = dir==="x-"?[-1,0,0]:dir==="x+"?[1,0,0]:dir==="z-"?[0,0,-1]:[0,0,1];
+  quadN(g,P[0],P[1],P[2],P[3],U,[1,1,1],e,n);
+}
+/* 圆形隧道断面轮廓 */
+function boreProfile(cutFrom){
+  const pts=[[TX0,TY],[TX0,BORE_SP]];
+  const SEG=18;
+  for(let i=1;i<=SEG;i++){
+    const a=Math.PI*(1-i/SEG);
+    pts.push([4+Math.cos(a)*BORE_R, BORE_SP+Math.sin(a)*BORE_R]);
+  }
+  if(cutFrom===undefined){ pts.push([TX1,BORE_SP]); pts.push([TX1,TY]); }
+  else { pts.push([TX1,BORE_SP]); pts.push([TX1,cutFrom]); }
+  return pts;
+}
+
+/* ============================ 建造车站 ============================ */
+function buildStation(){
+  const b = newBatch();
+  const G = n => grp(b,n);
+  const WHT=[1,1,1], W0=[1,1,1];
+
+  /* ---------- 地坪 ---------- */
+  box(G("floor"), PX0-0.6, -0.5, ZS0-0.6, PX1, FY, ZS1+0.6, W0,0,{uv:0.25,faces:["y1"]});
+  box(G("rust"),  TX0, TY-0.6, ZTUN, TX1, TY, 200, [0.62,0.60,0.58],0,{uv:0.22,faces:["y1"]});
+  // 站台侧立面
+  box(G("conc"), -0.3, TY, ZS0, 0, FY, ZS1, [0.92,0.90,0.88],0,{uv:0.6,faces:["x1"]});
+  // 站台面收边（白线 + 黄线）
+  planeY(G("white"), -0.62, ZS0, 0.0, ZS1, FY+0.012, [1,0.97,0.9],0,{uv:1});
+  planeY(G("edge"),  -1.42, ZS0, -0.66, ZS1, FY+0.02, [1,1,1],0,{uv:2.4});
+
+  /* ---------- 检修梯：从轨行区爬回站台 ---------- */
+  (function(){
+    const st=[[-54.0,-52.0,-0.78],[-52.0,-50.0,-0.40],[-50.0,-48.0,0.02]];
+    st.forEach(function(s){
+      box(G("conc"), 0.0, TY, s[0], 1.05, s[2], s[1], [0.88,0.86,0.83],0,{uv:0.5});
+      box(G("hazard"), 0.0, s[2]-0.035, s[0], 1.05, s[2], s[0]+0.16, [1,0.75,0.15],0,{uv:1});
+      addFloor(0.0, s[0], 1.05, s[1], s[2]);
+    });
+  })();
+
+  /* ---------- 站体墙 / 顶 ---------- */
+  box(G("panel"), PX0-0.6, FY, ZS0-0.6, PX0, CH, ZS1+0.6, W0,0,{uv:0.5,faces:["x1"]});
+  addCol(PX0-1, ZS0-1, PX0, ZS1+1, 9, "wall-back");
+  box(G("panel"), TX1, TY, ZS0, TX1+0.7, CH, ZS1, [0.85,0.86,0.88],0,{uv:0.5,faces:["x0"]});
+  addCol(TX1, ZS0, TX1+1, ZS1, 9, "wall-8");
+  box(G("panel"), PX0-0.6, FY, ZS0-0.6, TX0, CH, ZS0, [0.85,0.86,0.88],0,{uv:0.5,faces:["z1"]});
+  addCol(PX0-1, ZS0-1, TX0, ZS0+0.05, 9, "wall-n");
+  box(G("panel"), PX0-0.6, FY, ZS1, TX0, CH, ZS1+0.6, [0.85,0.86,0.88],0,{uv:0.5,faces:["z0"]});
+  addCol(PX0-1, ZS1-0.05, TX0, ZS1+1, 9, "wall-s");
+  box(G("ceil"),  PX0-0.6, CH, ZS0-0.6, TX1+0.7, CH+0.5, ZS1+0.6, W0,0,{uv:0.25,faces:["y0"]});
+
+  /* ---------- 隧道 ---------- */
+  extrude(G("tunnel"), boreProfile(), ZTUN, -64.5, [0.9,0.9,0.92],0,{uv:0.25});
+  extrude(G("tunnel"), boreProfile(0.78), -64.5, ZS0, [0.9,0.9,0.92],0,{uv:0.25});
+  extrude(G("tunnel"), boreProfile(), ZS1, 200, [0.9,0.9,0.92],0,{uv:0.25});
+  addCol(TX1-0.2, ZTUN, TX1+1, -64.5, 9, "tun-r1");
+  addCol(TX1-0.2, ZS0, TX1+1, 200, 9, "tun-r2");
+  addCol(-0.6, ZTUN, 0.05, ZS0, 9, "tun-l1");
+  addCol(-0.6, ZS1, 0.05, 200, 9, "tun-l2");
+  addCol(TX0-1, ZTUN-1, TX1+1, ZTUN, 9, "tun-end");
+
+  /* ---------- 检修环线（隧道侧龛） ---------- */
+  const NZ0=-64.0, NZ1=-57.0, NX1=12.6;
+  box(G("tunnel"), TX1, TY-0.4, NZ0, NX1, TY, NZ1, [0.72,0.70,0.68],0,{uv:0.25,faces:["y1"]});
+  box(G("tunnel"), TX1, 1.45, NZ0, NX1, 1.75, NZ1, [0.6,0.6,0.62],0,{uv:0.25,faces:["y0"]});
+  box(G("rust"), NX1, TY, NZ0-0.3, NX1+0.4, 1.75, NZ1+0.3, [0.8,0.78,0.74],0,{uv:0.25,faces:["x0"]});
+  box(G("rust"), TX1, TY, NZ0-0.3, NX1+0.4, 1.75, NZ0, [0.8,0.78,0.74],0,{uv:0.25,faces:["z1"]});
+  box(G("rust"), TX1, TY, NZ1, NX1+0.4, 1.75, NZ1+0.3, [0.8,0.78,0.74],0,{uv:0.25,faces:["z0"]});
+  addCol(NX1, NZ0-1, NX1+1, NZ1+1, 9, "niche-back");
+  addCol(TX1, NZ0-1, NX1+1, NZ0, 9, "niche-z0");
+  addCol(TX1, NZ1, NX1+1, NZ1+1, 9, "niche-z1");
+  // 龛内：管路 / 指示牌 / 电缆
+  for(let i=0;i<3;i++){
+    const y=0.55+i*0.42;
+    box(G("cable"), TX1+0.35, y, NZ0+0.2, TX1+0.55, y+0.22, NZ1-0.2, [1,1,1],0,{uv:1});
+  }
+  box(G("metalD"), 11.2, TY, NZ0+0.3, 12.0, TY+1.5, NZ0+0.7, [1,1,1],0,{uv:1});  // 配电箱
+  board(b,"signLoop", NX1-0.02, 1.15, -60.5, 2.0, 0.55, "x-", 0.85);
+  board(b,"signDg", 9.0, TY+1.0, NZ0+0.02, 0.8, 0.8, "z+", 0.5);
+  // 墙上涂的 0017
+  (function(){
+    const c=cv(256,128), x=c.getContext("2d");
+    x.clearRect(0,0,256,128);
+    x.font='700 96px "Consolas",monospace'; x.textAlign="center"; x.textBaseline="middle";
+    x.fillStyle="rgba(232,86,64,0.85)"; x.fillText("0017",128,66);
+    x.strokeStyle="rgba(232,86,64,0.5)"; x.lineWidth=4; x.strokeRect(14,14,228,100);
+    const t=texOf(c,false,true);
+    MAT.graffiti={tex:t,uv:1,spec:0.05,tint:[0.9,0.9,0.9]};
+    board(b,"graffiti", NX1-0.03, 1.25, -62.6, 1.9, 0.95, "x-", 0.35);
+  })();
+
+  /* ---------- 轨行区垫脚箱（可跳上去） ---------- */
+  [-30.0, 20.0].forEach(function(z){
+    box(G("metalD"), 0.35, TY, z-0.90, 1.95, TY+0.62, z+0.90, [0.86,0.86,0.89],0,{uv:1});
+    box(G("hazard"), 0.35, TY+0.62, z-0.90, 1.95, TY+0.665, z-0.60, [1,0.75,0.15],0,{uv:1});
+    box(G("metalD"), 0.35, TY+0.20, z-0.95, 1.95, TY+0.26, z+0.95, [0.7,0.7,0.74],0,{uv:1});
+    addFloor(0.35, z-0.90, 1.95, z+0.90, TY+0.665);
+  });
+
+  /* ---------- 站台端头 / 出口闸 ---------- */
+  box(G("metalD"), PX0, FY, ZS1-6.0, TX0, 3.1, ZS1-5.6, [1,1,1],0,{uv:1});
+  addCol(PX0, ZS1-6.0, TX0, ZS1-5.6, 9, "shutter");
+  for(let i=0;i<12;i++){
+    box(G("metalD"), PX0+0.02, FY+0.02+i*0.26, ZS1-5.98, TX0-0.02, FY+0.20+i*0.26, ZS1-5.62, [1.12,1.12,1.12],0,{uv:1});
+  }
+  box(G("hazard"), PX0, 1.35, ZS1-6.02, TX0, 1.75, ZS1-5.58, [1,0.72,0.12],0,{uv:1});
+  board(b,"signEx", -6.5, 3.55, ZS1-5.9, 3.4, 1.06, "z-", 0.85);
+  board(b,"notice", -3.0, 1.55, ZS1-0.02, 1.5, 1.0, "z-", 0.35);
+  board(b,"signDg", -10.0, 1.5, ZS0+0.02, 0.9, 0.9, "z+", 0.45);
+  // 闸机
+  for(let i=0;i<3;i++){
+    const z=ZS1-12.5+i*2.6;
+    box(G("metalD"), -9.2, FY, z, -6.4, 1.0, z+0.55, [1,1,1],0,{uv:1});
+    addCol(-9.2, z, -6.4, z+0.55, 1.0, "gate");
+    box(G("plain"), -9.15, 1.0, z+0.06, -6.45, 1.06, z+0.49, [0.15,0.5,0.35],0,{uv:1});
+  }
+
+  /* ---------- 柱 ---------- */
+  for(let i=0;i<8;i++){
+    const z=-40+i*12;
+    box(G("panel"), -9.05, FY, z-0.45, -8.15, CH, z+0.45, [0.95,0.95,0.96],0,{uv:0.5});
+    box(G("metalD"), -9.15, FY, z-0.55, -8.05, 0.10, z+0.55, [1,1,1],0,{uv:1});
+    box(G("metalD"), -9.15, CH-0.12, z-0.55, -8.05, CH, z+0.55, [1,1,1],0,{uv:1});
+    addCol(-9.15, z-0.55, -8.05, z+0.55, 9, "col");
+  }
+
+  /* ---------- 吊顶灯带 ---------- */
+  for(let i=0;i<22;i++){
+    const z=-52.5+i*5.0;
+    box(G("lamp"), -12.6, CH-0.12, z-0.22, -4.4, CH-0.02, z+0.22, [1.0,0.94,0.80],1.0,{uv:1});
+    box(G("metalD"), -12.8, CH-0.16, z-0.34, -4.2, CH-0.06, z+0.34, [0.8,0.8,0.82],0,{uv:1});
+    if(i%2===0) addLight(-8.5, CH-0.5, z, [1.30,1.16,0.90], 12.5);
+  }
+  /* ---------- 轨行区上方灯带 ---------- */
+  for(let i=0;i<11;i++){
+    const z=-50+i*10;
+    box(G("lamp"), 1.6, CH-0.12, z-1.5, 6.4, CH-0.02, z+1.5, [0.90,0.93,1.0],0.85,{uv:1});
+    box(G("metalD"), 1.4, CH-0.18, z-1.7, 6.6, CH-0.04, z+1.7, [0.68,0.70,0.75],0,{uv:1});
+    addLight(4.0, CH-0.7, z, [0.80,0.84,0.96], 13.0);
+  }
+
+  /* ---------- 广告灯箱（主要光源） ---------- */
+  const adZ=[-34,-22,-10,2,14,26,38];
+  adZ.forEach((z,i)=>{
+    box(G("metalD"), PX0, 1.15, z-1.35, PX0+0.24, 2.85, z+1.35, [1,1,1],0,{uv:1});
+    const pm=[ "poster","poster2","poster3" ][i%3];
+    board(b,pm, PX0+0.25, 2.0, z, 2.36, 1.5, "x+", 0.92);
+    box(G("lamp"), PX0+0.02, 1.25, z-1.2, PX0+0.10, 2.75, z+1.2, [1.0,0.9,0.72],0.55,{uv:1});
+    addLight(PX0+1.3, 2.0, z, [1.60,1.36,1.00], 13.5);
+  });
+
+  /* ---------- 座椅 / 垃圾箱 / 售货机 / 检修箱 ---------- */
+  const benches=[[15.2,19.2],[-8.0,-4.0]];
+  benches.forEach((bz,k)=>{
+    const z0=bz[0], z1=bz[1];
+    box(G("metalD"), -15.1, 0.42, z0, -13.9, 0.50, z1, [1,1,1],0,{uv:1});
+    box(G("metalD"), -15.15, 0.50, z0, -14.9, 1.05, z1, [0.9,0.9,0.92],0,{uv:1});
+    [z0+0.35, z1-0.55].forEach(zz=>{
+      box(G("metalD"), -15.05, FY, zz, -13.95, 0.42, zz+0.18, [0.85,0.85,0.88],0,{uv:1});
+    });
+    addCol(-15.2, z0, -13.8, z1, 0.52, "bench");
+  });
+  box(G("metalD"), -17.5, FY, -34.6, -16.9, 1.0, -34.0, [0.8,0.8,0.82],0,{uv:1});
+  box(G("metalD"), -17.5, FY, 8.6, -16.9, 1.0, 9.2, [0.8,0.8,0.82],0,{uv:1});
+  addCol(-17.5,-34.6,-16.9,-34.0, 1.0, "bin"); addCol(-17.5,8.6,-16.9,9.2,1.0,"bin");
+  box(G("metalD"), -17.85, FY, 4.0, -17.05, 2.0, 6.2, [1,1,1],0,{uv:1});
+  addCol(-17.85, 4.0, -17.05, 6.2, 2.0, "vending");
+  board(b,"poster2", -17.02, 1.25, 5.1, 1.6, 1.1, "x+", 0.9);
+  addLight(-16.4, 1.5, 5.1, [1.25,1.18,1.32], 7.0);
+  box(G("metalD"), -17.1, FY, -21.4, -16.1, 0.78, -19.4, [0.9,0.9,0.92],0,{uv:1});
+  addCol(-17.1, -21.4, -16.1, -19.4, 0.78, "toolbox");
+
+  /* ---------- 调度台 ---------- */
+  box(G("metalD"), -17.7, FY, -16.2, -15.7, 1.02, -12.0, [1,1,1],0,{uv:1});
+  addCol(-17.7, -16.2, -15.7, -12.0, 1.05, "console");
+  box(G("plain"), -17.72, 1.02, -16.2, -15.68, 1.10, -12.0, [0.18,0.20,0.23],0,{uv:1});
+  [[-15.4,-15.6],[-14.6,-13.4],[-13.0,-12.2]].forEach(mz=>{
+    box(G("metalD"), -17.55, 1.10, mz[0], -16.3, 1.55, mz[1], [0.5,0.5,0.54],0,{uv:1});
+    board(b,"screen", -16.28, 1.33, (mz[0]+mz[1])/2, Math.abs(mz[1]-mz[0])*0.86, 0.36, "x+", 0.95);
+  });
+  addLight(-16.2, 1.7, -14.0, [0.72,1.50,1.00], 7.5);
+  box(G("plain"), -16.6, FY, -11.6, -15.9, 0.5, -11.0, [0.16,0.17,0.19],0,{uv:1});
+  box(G("plain"), -16.55, 0.5, -11.6, -15.95, 1.15, -11.2, [0.16,0.17,0.19],0,{uv:1});
+  addCol(-16.6, -11.6, -15.9, -11.0, 0.5, "chair");
+
+  /* ---------- 配电柜（总闸） ---------- */
+  box(G("metalD"), -17.75, FY, -30.7, -17.15, 1.95, -29.3, [0.95,0.95,0.97],0,{uv:1});
+  box(G("metalD"), -17.12, FY, -30.65, -17.05, 1.90, -29.35, [0.75,0.76,0.78],0,{uv:1});
+  board(b,"signDg", -17.04, 1.62, -30.0, 0.42, 0.42, "x+", 0.5);
+  addCol(-17.75, -30.7, -17.05, -29.3, 1.95, "cabinet");
+  addLight(-16.6, 1.6, -30.0, [1.05,1.10,1.22], 6.5);
+
+  /* ---------- 检修笼 ---------- */
+  const CG0=-38.0, CG1=-34.0, CGX0=PX0, CGX1=-16.30;
+  (function cage(){
+    const post=(x,z)=>box(G("metalD"), x-0.05, FY, z-0.05, x+0.05, 2.25, z+0.05, [1,1,1],0,{uv:1});
+    post(CGX1,CG0); post(CGX1,CG1); post(CGX0+0.05,CG0); post(CGX0+0.05,CG1);
+    [[CG0,CG1]].forEach(s=>{
+      box(G("metalD"), CGX1-0.05, 2.18, s[0], CGX1+0.05, 2.25, s[1], [1,1,1],0,{uv:1});
+      box(G("metalD"), CGX1-0.05, FY, s[0], CGX1+0.05, 0.07, s[1], [1,1,1],0,{uv:1});
+    });
+    // 竖栅
+    for(let z=CG0+0.28; z<CG1-0.05; z+=0.30){
+      if(z>-36.9 && z<-35.1) continue;
+      box(G("metalD"), CGX1-0.03, 0.07, z-0.022, CGX1+0.03, 2.18, z+0.022, [1,1,1],0,{uv:1});
+    }
+    [CG0,CG1].forEach(zz=>{
+      for(let x=CGX0+0.3; x<CGX1-0.1; x+=0.30)
+        box(G("metalD"), x-0.022, 0.07, zz-0.03, x+0.022, 2.18, zz+0.03, [1,1,1],0,{uv:1});
+    });
+    [CG0, CG1].forEach(zz=> addCol(CGX0, zz-0.06, CGX1, zz+0.06, 9, "cage-z"));
+    addCol(CGX1-0.1, CG0, CGX1+0.1, -36.9, 9, "cage-f1");
+    addCol(CGX1-0.1, -35.1, CGX1+0.1, CG1, 9, "cage-f2");
+    // 内部货架
+    box(G("metalD"), CGX0+0.1, FY, CG0+0.2, CGX1-0.35, 0.06, CG1-0.2, [0.9,0.9,0.92],0,{uv:1});
+    box(G("metalD"), CGX0+0.1, 0.55, CG0+0.2, CGX1-0.35, 0.61, CG1-0.2, [0.9,0.9,0.92],0,{uv:1});
+    box(G("metalD"), CGX0+0.1, 1.10, CG0+0.2, CGX1-0.35, 1.16, CG1-0.2, [0.9,0.9,0.92],0,{uv:1});
+    addLight(CGX1-0.5, 1.9, (CG0+CG1)/2, [1.32,1.12,0.78], 5.5);
+  })();
+
+  /* ---------- 信号室 ---------- */
+  const SRX0=PX0, SRX1=-14.2, SRZ0=24.0, SRZ1=32.5, SRH=3.2, DOOR0=27.0, DOOR1=29.6;
+  (function sigRoom(){
+    box(G("panel"), SRX1-0.22, FY, SRZ0, SRX1, SRH, DOOR0, [0.95,0.95,0.97],0,{uv:0.5});
+    box(G("panel"), SRX1-0.22, FY, DOOR1, SRX1, SRH, SRZ1, [0.95,0.95,0.97],0,{uv:0.5});
+    box(G("panel"), SRX1-0.22, 2.30, DOOR0, SRX1, SRH, DOOR1, [0.95,0.95,0.97],0,{uv:0.5});
+    addCol(SRX1-0.22, SRZ0, SRX1, DOOR0, 9, "sr-f1");
+    addCol(SRX1-0.22, DOOR1, SRX1, SRZ1, 9, "sr-f2");
+    box(G("panel"), SRX0, FY, SRZ0-0.22, SRX1, SRH, SRZ0, [0.92,0.92,0.94],0,{uv:0.5});
+    box(G("panel"), SRX0, FY, SRZ1, SRX1, SRH, SRZ1+0.22, [0.92,0.92,0.94],0,{uv:0.5});
+    addCol(SRX0, SRZ0-0.22, SRX1, SRZ0, 9, "sr-z0");
+    addCol(SRX0, SRZ1, SRX1, SRZ1+0.22, 9, "sr-z1");
+    box(G("ceil"), SRX0, SRH, SRZ0-0.22, SRX1+0.22, SRH+0.3, SRZ1+0.22, [0.85,0.85,0.88],0,{uv:0.25,faces:["y0"]});
+    box(G("ceil"), SRX0, SRH+0.30, SRZ0-0.22, SRX1+0.22, SRH+0.42, SRZ1+0.22, [0.8,0.8,0.82],0,{uv:0.25,faces:["y1"]});
+    box(G("metalD"), SRX0, FY-0.18, SRZ0, SRX1, FY+0.02, SRZ1, [0.62,0.63,0.66],0,{uv:0.6,faces:["y1"]});
+    // 内部：机柜 + 继电器架
+    box(G("metalD"), SRX0+0.15, 0.35, SRZ0+0.4, SRX0+1.0, 2.05, SRZ1-0.4, [0.85,0.85,0.88],0,{uv:1});
+    addCol(SRX0+0.1, SRZ0+0.3, SRX0+1.05, SRZ1-0.3, 2.05, "sr-cab");
+    for(let i=0;i<5;i++){
+      box(G("lamp"), SRX0+1.02, 0.55+i*0.28, SRZ0+0.7, SRX0+1.05, 0.66+i*0.28, SRZ1-0.7, [0.4,0.9,1.0],0.55,{uv:1});
+    }
+    board(b,"screen", SRX1-0.30, 1.55, 26.0, 1.5, 0.62, "x-", 0.95);
+    box(G("lamp"), SRX1-0.5, SRH-0.14, 26.0, SRX1-2.6, SRH-0.04, 26.4, [0.95,0.88,0.72],1.0,{uv:1});
+    addLight(-16.2, 2.4, 26.2, [0.98,0.88,0.70], 7.5);
+    board(b,"signSt", SRX1+0.02, 2.62, (DOOR0+DOOR1)/2, 2.2, 0.55, "x+", 0.8);
+  })();
+
+  /* ---------- 悬挂站牌 / 时钟 ---------- */
+  const hang=[[-30.0,"signSt",4.2,1.05],[-2.0,null,2.4,0.72],[20.0,"signSt",4.2,1.05],[42.0,"signEx",3.2,1.0]];
+  hang.forEach(h=>{
+    const z=h[0], matName=h[1], w=h[2], hh=h[3], y=3.62;
+    box(G("metalD"), -5.35, CH-0.85, z-0.03, -5.15, CH, z+0.03, [0.8,0.8,0.82],0,{uv:1});
+    box(G("metalD"), -4.85, CH-0.85, z-0.03, -4.65, CH, z+0.03, [0.8,0.8,0.82],0,{uv:1});
+    box(G("metalD"), -5.55, y-hh/2-0.06, z-0.09, -4.45, y+hh/2+0.06, z+0.09, [0.72,0.73,0.76],0,{uv:1});
+    if(matName){ board(b,matName,-4.42, y, z, w, hh, "x+", 0.85); board(b,matName,-5.58, y, z, w, hh, "x-", 0.85); }
+    else {
+      board(b,"clock",-4.42, y, z, w, hh, "x+", 1.0);
+      board(b,"clock",-5.58, y, z, w, hh, "x-", 1.0);
+      box(G("metalD"), -5.5, y-hh/2-0.05, z-0.1, -4.5, y+hh/2+0.05, z-0.075, [0.7,0.7,0.72],0,{uv:1});
+      box(G("metalD"), -5.5, y-hh/2-0.05, z+0.075, -4.5, y+hh/2+0.05, z+0.1, [0.7,0.7,0.72],0,{uv:1});
+    }
+  });
+
+  /* ---------- 轨行区细节 ---------- */
+  const rail=(x)=>{ box(G("metal"), x-0.045, TY, ZTUN, x+0.045, TY+0.16, 200, [0.85,0.86,0.9],0,{uv:0.5}); };
+  rail(3.28); rail(4.72);
+  for(let i=0;i<230;i++){
+    const z=-80+i*0.70;
+    box(G("conc"), 2.55, TY-0.02, z, 5.45, TY+0.03, z+0.26, [0.42,0.42,0.44],0,{uv:0.6});
+  }
+  box(G("cable"), TX1-0.6, TY, ZTUN, TX1-0.1, TY+0.28, 200, [1,1,1],0,{uv:0.5});
+  // 信号机
+  [40.0,-20.0,12.0].forEach((z,i)=>{
+    box(G("metalD"), 2.0, TY, z-0.1, 2.3, TY+3.0, z+0.1, [0.8,0.8,0.83],0,{uv:1});
+    box(G("plain"), 1.95, TY+2.35, z-0.19, 2.35, TY+3.0, z+0.19, [0.12,0.13,0.15],0,{uv:1});
+    box(G("unlit"), 2.0, TY+2.62, z-0.21, 2.02, TY+2.82, z-0.16, [0.25,1.0,0.45],0,{uv:1});
+    box(G("unlit"), 2.0, TY+2.62, z+0.16, 2.02, TY+2.82, z+0.21, [0.25,1.0,0.45],0,{uv:1});
+  });
+  // 隧道照明（暗）
+  for(let z=-160; z<-70; z+=22){
+    box(G("lamp"), TX1-0.35, 3.1, z-1.1, TX1-0.15, 3.22, z+1.1, [0.85,0.92,1.0],0.9,{uv:1});
+    box(G("metalD"), TX1-0.42, 3.02, z-1.3, TX1-0.12, 3.28, z+1.3, [0.65,0.66,0.7],0,{uv:1});
+    if(z>-140) W.flicker.push(addLight(TX1-1.0, 2.9, z, [0.82,0.92,1.10], 12.0));
+  }
+  for(let z=70; z<170; z+=22){
+    box(G("lamp"), TX1-0.35, 3.1, z-1.1, TX1-0.15, 3.22, z+1.1, [0.85,0.92,1.0],0.9,{uv:1});
+    if(z<140) W.flicker.push(addLight(TX1-1.0, 2.9, z, [0.82,0.92,1.10], 12.0));
+  }
+  // 站台端头警示
+  board(b,"signDg", -4.0, 1.6, ZS0+0.02, 1.0, 1.0, "z+", 0.5);
+
+  return b;
+}
+
+/* ============================ 动态物件 ============================ */
+function unitOctBatch(matName){
+  const b=newBatch(), g=grp(b,matName);
+  const V=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  const T=[[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+  for(const t of T){
+    const a=V[t[0]],c=V[t[1]],d=V[t[2]];
+    let nx=(c[1]-a[1])*(d[2]-a[2])-(c[2]-a[2])*(d[1]-a[1]);
+    let ny=(c[2]-a[2])*(d[0]-a[0])-(c[0]-a[0])*(d[2]-a[2]);
+    let nz=(c[0]-a[0])*(d[1]-a[1])-(c[1]-a[1])*(d[0]-a[0]);
+    const L=Math.hypot(nx,ny,nz)||1; nx/=L;ny/=L;nz/=L;
+    [[a,[0,0]],[c,[1,0]],[d,[0.5,1]]].forEach(v=>pv(g,v[0][0],v[0][1],v[0][2],nx,ny,nz,v[1][0],v[1][1],[1,1,1],1));
+  }
+  return upload(b);
+}
+const G_ITEM = unitOctBatch("item");
+
+/* 信号室门（沿 +Z 滑开） */
+const G_SRDOOR = (()=>{
+  const b=newBatch(), G=n=>grp(b,n);
+  box(G("metalD"), -14.32, 0.02, 27.02, -14.22, 2.26, 29.58, [1,1,1],0,{uv:1});
+  box(G("trainW"), -14.34, 1.35, 27.35, -14.21, 1.95, 28.15, [1,1,1],0,{uv:1});
+  box(G("hazard"), -14.33, 0.06, 27.02, -14.21, 0.34, 29.58, [1,0.75,0.15],0,{uv:1});
+  box(G("metalD"), -14.36, 1.10, 29.05, -14.19, 1.22, 29.45, [0.8,0.8,0.84],0,{uv:1});
+  return upload(b);
+})();
+/* 检修笼门（向上卷起） */
+const G_CAGEDOOR = (()=>{
+  const b=newBatch(), G=n=>grp(b,n);
+  box(G("metalD"), -16.36, 0.02, -36.88, -16.28, 2.16, -35.12, [1,1,1],0,{uv:1});
+  for(let z=-36.8; z<-35.1; z+=0.24)
+    box(G("metalD"), -16.40, 0.05, z-0.03, -16.24, 2.13, z+0.03, [1,1,1],0,{uv:1});
+  box(G("hazard"), -16.38, 0.02, -36.88, -16.26, 0.20, -35.12, [1,0.75,0.15],0,{uv:1});
+  return upload(b);
+})();
+/* 配电柜手柄 */
+const G_LEVER = (()=>{
+  const b=newBatch(), G=n=>grp(b,n);
+  box(G("metalD"), -0.075, -0.16, -0.075, 0.075, 0.02, 0.075, [1,1,1],0,{uv:1});
+  box(G("hazard"), -0.05, -0.02, -0.05, 0.05, 0.50, 0.05, [1,0.8,0.2],0,{uv:1});
+  box(G("metalD"), -0.08, 0.47, -0.08, 0.08, 0.60, 0.08, [0.9,0.4,0.35],0,{uv:1});
+  return upload(b);
+})();
+/* 总调度手柄 */
+const G_HANDLE = (()=>{
+  const b=newBatch(), G=n=>grp(b,n);
+  box(G("metalD"), -16.96, 0.0, 30.42, -16.44, 1.02, 31.18, [0.95,0.95,0.97],0,{uv:1});
+  box(G("metalD"), -16.93, 1.02, 30.46, -16.47, 1.08, 31.14, [0.35,0.36,0.4],0,{uv:1});
+  box(G("hazard"), -16.94, 0.12, 30.5, -16.93, 0.9, 30.52, [1,0.72,0.15],0,{uv:1});
+  box(G("metalD"), -16.90, 0.0, 30.70, -16.50, 0.42, 30.90, [1,1,1],0,{uv:1});
+  return upload(b);
+})();
+const G_HANDLEBAR = (()=>{
+  const b=newBatch(), G=n=>grp(b,n);
+  box(G("metalD"), -0.035, 0.0, -0.035, 0.035, 0.62, 0.035, [1,1,1],0,{uv:1});
+  box(G("hazard"), -0.07, 0.60, -0.07, 0.07, 0.74, 0.07, [1,0.35,0.25],0,{uv:1});
+  return upload(b);
+})();
+
+/* 列车 */
+const TRAIN = { len:19.4, cars:6, z:-190, vel:0, mode:"wait" };
+function buildTrain(){
+  const b=newBatch(), G=n=>grp(b,n);
+  const L=TRAIN.len, N=TRAIN.cars;
+  const yB=TY+0.45, yT=TY+3.30;
+  for(let c=0;c<N;c++){
+    const z0=-c*L, z1=z0-L+0.30;
+    const head=(c===0), tail=(c===N-1);
+    box(G("trainA"), 2.56, yB, z1, 5.44, yT, z0, [1,1,1],0,{uv:0.6});
+    box(G("trainD"), 2.50, yT-0.02, z1, 5.50, yT+0.24, z0, [1,1,1],0,{uv:0.5});
+    box(G("trainD"), 2.62, TY+0.02, z1, 5.38, yB+0.04, z0, [1,1,1],0,{uv:0.5});
+    box(G("trainC"), 2.53, TY+1.55, z1, 5.47, TY+1.80, z0, [1,1,1],0,{uv:1});
+    box(G("trainB"), 2.545, TY+0.62, z1, 5.455, TY+1.48, z0, [1,1,1],0,{uv:0.5});
+    for(let w=0; w<4; w++){
+      const wz = z0-2.6-w*4.3;
+      box(G("trainW"), 2.52, TY+0.78, wz-1.35, 5.48, TY+1.42, wz-0.05, [1,1,1],0,{uv:0.5});
+    }
+    for(let d=0; d<3; d++){
+      const dz = z0-1.2-d*6.0;
+      box(G("trainB"), 2.50, yB+0.02, dz-1.35, 5.50, yT+0.02, dz-0.05, [1,1,1],0,{uv:0.5});
+      box(G("trainW"), 2.49, TY+1.05, dz-1.28, 5.51, TY+2.06, dz-0.12, [1,1,1],0,{uv:0.5});
+      box(G("trainD"), 2.48, TY+0.60, dz-0.02, 5.52, TY+1.50, dz+0.02, [1,1,1],0,{uv:1});
+      box(G("trainD"), 2.48, TY+0.60, dz-1.38, 5.52, TY+1.50, dz-1.34, [1,1,1],0,{uv:1});
+    }
+    // 转向架
+    [z0-3.1, z1+3.1].forEach(bz=>{
+      box(G("trainD"), 2.85, TY+0.06, bz-1.05, 5.15, TY+0.50, bz+1.05, [1,1,1],0,{uv:0.6});
+      [3.05,4.95].forEach(wx=>{
+        box(G("metalD"), wx-0.09, TY+0.02, bz-0.62, wx+0.09, TY+0.40, bz-0.42, [0.55,0.55,0.58],0,{uv:1});
+        box(G("metalD"), wx-0.09, TY+0.02, bz+0.42, wx+0.09, TY+0.40, bz+0.62, [0.55,0.55,0.58],0,{uv:1});
+      });
+    });
+    if(head){
+      box(G("trainA"), 2.62, yB+0.1, z0+0.02, 5.38, yT-0.25, z0+0.30, [1,1,1],0,{uv:0.6});
+      box(G("trainW"), 2.60, TY+1.35, z0+0.30, 5.40, TY+2.42, z0+0.34, [1,1,1],0,{uv:1});
+      card(G,2.72,TY+0.72,z0+0.35, 1.0,0.34, [0.9,0.95,1.0]);
+      card(G,5.28,TY+0.72,z0+0.35, 1.0,0.34, [0.9,0.95,1.0]);
+      box(G("trainC"), 2.56, TY+0.30, z0+0.02, 5.44, TY+0.55, z0+0.33, [1,1,1],0,{uv:1});
+    }
+    if(tail){
+      card(G,2.90,TY+0.90,z1-0.03, 0.42,0.30, [1.0,0.22,0.18]);
+      card(G,5.10,TY+0.90,z1-0.03, 0.42,0.30, [1.0,0.22,0.18]);
+    }
+  }
+  function card(G,x,y,z,w,h,col){
+    const g=grp(b,"headl");
+    quadN(g,[x-w/2,y-h/2,z],[x+w/2,y-h/2,z],[x+w/2,y+h/2,z],[x-w/2,y+h/2,z],
+      [[0,1],[1,1],[1,0],[0,0]],col,1.0,[0,0,1]);
+  }
+  return upload(b);
+}
+const G_TRAIN = buildTrain();
+const TRN_LIGHTS = [
+  {off:[2.72, TY+0.72, 4.0], c:[1.0,0.96,0.86], r:30},
+  {off:[5.28, TY+0.72, 4.0], c:[1.0,0.96,0.86], r:30},
+  {off:[4.00, TY+2.40, 6.0], c:[0.95,0.90,0.80], r:16},
+  {off:[2.90, TY+0.90, -(TRAIN.cars*TRAIN.len)+0.2], c:[1.0,0.25,0.2], r:9},
+  {off:[5.10, TY+0.90, -(TRAIN.cars*TRAIN.len)+0.2], c:[1.0,0.25,0.2], r:9}
+];
+TRN_LIGHTS.forEach(l=>{ const L=addLight(l.off[0],l.off[1],l.off[2],l.c,l.r); L.off=l.off; L.dyn=true; });
+
+/* 物品（记忆碎片） */
+const ITEMS=[
+  {id:"relay1",name:"旧继电器",   sub:"站台 · 检修箱上",       pos:[-16.60,1.28,-20.40],col:[1.00,0.74,0.32],got:false},
+  {id:"log",   name:"巡检簿",     sub:"站台 · 长椅上",         pos:[-14.30,1.02, 17.00],col:[1.00,0.74,0.32],got:false},
+  {id:"order", name:"K3区指令条", sub:"站台 · 检修笼（需合闸）",pos:[-17.10,1.50,-36.00],col:[0.42,0.86,1.00],got:false},
+  {id:"key",   name:"停用钥匙",   sub:"隧道 · 检修环线（需手电）",pos:[10.80,-0.10,-60.50],col:[0.42,0.86,1.00],got:false},
+  {id:"relay5",name:"五号继电器", sub:"信号室（需集齐四件）",   pos:[-16.20,1.50, 27.20],col:[1.00,0.58,0.86],got:false}
+];
+const ITEM_LIGHTS = ITEMS.map(it=>{
+  const L=addLight(it.pos[0],it.pos[1]+0.25,it.pos[2], it.col, 6.5);
+  L.itemOf=it; return L;
+});
+/* 手柄底座碰撞 */
+addCol(-16.98, 30.40, -16.42, 31.20, 1.08, "handle");
+/* 动态门碰撞：动画到位后解除 */
+const DC_SR   = {x0:-14.44, z0:27.00, x1:-14.18, z1:29.60, y1:9, off:false, tag:"d-sr"};
+const DC_CAGE = {x0:-16.46, z0:-36.90, x1:-16.22, z1:-35.10, y1:9, off:false, tag:"d-cage"};
+W.cols.push(DC_SR, DC_CAGE);
+
+/* ============================ 正式建造 & 上传 ============================ */
+const STATION = upload(buildStation());
+
+/* ============================ 音频 ============================ */
+let AC=null, MASTER=null, ANOISE=null, RUMBLE=null, VOICE=true;
+function noiseBuf(sec){
+  const n=Math.floor(AC.sampleRate*sec), b=AC.createBuffer(1,n,AC.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
+  return b;
+}
+function audioInit(){
+  if(AC) { if(AC.state==="suspended") AC.resume(); return; }
+  const C = window.AudioContext||window.webkitAudioContext;
+  if(!C) return;
+  AC=new C();
+  MASTER=AC.createGain(); MASTER.gain.value=0.9; MASTER.connect(AC.destination);
+  const f=AC.createBiquadFilter(); f.type="lowpass"; f.frequency.value=210;
+  const g=AC.createGain(); g.gain.value=0.055;
+  [47.0,71.0,71.6].forEach(fr=>{ const o=AC.createOscillator(); o.type="sine"; o.frequency.value=fr;
+    const og=AC.createGain(); og.gain.value=0.6; o.connect(og); og.connect(f); o.start(); });
+  f.connect(g); g.connect(MASTER);
+  ANOISE=noiseBuf(4);
+  const ns=AC.createBufferSource(); ns.buffer=ANOISE; ns.loop=true;
+  const nf=AC.createBiquadFilter(); nf.type="bandpass"; nf.frequency.value=360; nf.Q.value=0.55;
+  const ng=AC.createGain(); ng.gain.value=0.03;
+  ns.connect(nf); nf.connect(ng); ng.connect(MASTER); ns.start();
+}
+function beep(freq,dur,type,vol,delay){
+  if(!AC) return;
+  const t=AC.currentTime+(delay||0);
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||"sine"; o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.linearRampToValueAtTime(vol||0.07,t+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(MASTER); o.start(t); o.stop(t+dur+0.06);
+}
+function relayClick(vol,fr){
+  if(!AC) return;
+  const t=AC.currentTime, s=AC.createBufferSource(); s.buffer=ANOISE;
+  const f=AC.createBiquadFilter(); f.type="bandpass"; f.frequency.value=fr||2300; f.Q.value=3.2;
+  const g=AC.createGain();
+  g.gain.setValueAtTime(vol||0.20,t); g.gain.exponentialRampToValueAtTime(0.0005,t+0.055);
+  s.connect(f); f.connect(g); g.connect(MASTER); s.start(t); s.stop(t+0.09);
+}
+function pickupSfx(){ beep(760,0.16,"sine",0.055); beep(1240,0.34,"sine",0.045,0.08); relayClick(0.10,3200); }
+function chimeSfx(){ beep(880,0.55,"sine",0.045); beep(659,0.85,"sine",0.04,0.30); }
+function stepSfx(run){
+  if(!AC) return;
+  const t=AC.currentTime, s=AC.createBufferSource(); s.buffer=ANOISE;
+  const f=AC.createBiquadFilter(); f.type="lowpass"; f.frequency.value=run?520:380;
+  const g=AC.createGain();
+  g.gain.setValueAtTime(0.001,t); g.gain.linearRampToValueAtTime(run?0.085:0.055,t+0.006);
+  g.gain.exponentialRampToValueAtTime(0.0004,t+0.10);
+  s.connect(f); f.connect(g); g.connect(MASTER); s.start(t); s.stop(t+0.14);
+}
+function rumbleStart(){
+  if(!AC||RUMBLE) return;
+  const s=AC.createBufferSource(); s.buffer=ANOISE; s.loop=true;
+  const f=AC.createBiquadFilter(); f.type="lowpass"; f.frequency.value=150;
+  const g=AC.createGain(); g.gain.value=0.0001;
+  g.gain.linearRampToValueAtTime(0.30, AC.currentTime+5.0);
+  s.connect(f); f.connect(g); g.connect(MASTER); s.start();
+  RUMBLE={s:s,g:g};
+}
+function rumbleLevel(v){ if(RUMBLE) RUMBLE.g.gain.setTargetAtTime(v, AC.currentTime, 0.3); }
+function speak(txt){
+  if(!VOICE||!window.speechSynthesis) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(txt);
+    u.lang="zh-CN"; u.rate=0.98; u.pitch=0.82; u.volume=0.95;
+    const vs=speechSynthesis.getVoices().filter(v=>/zh|Chinese/i.test(v.lang+v.name));
+    if(vs.length) u.voice=vs[0];
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ============================ HUD ============================ */
+const EL = {
+  clock:$("#clock"), clockSub:$("#clockSub"), frag:$("#fragList"), arrows:$("#arrows"),
+  prompt:$("#prompt"), promptTx:$("#promptTx"), sub:$("#subtitle"), subWho:$("#subWho"), subTx:$("#subTx"),
+  toast:$("#toast"), cross:$("#cross"), cArrow:$("#cArrow"), cDist:$("#cDist"),
+  dmg:$("#dmg"), fade:$("#fade"), warn:$("#warnflash"), stats:$("#stats"), mis:$("#misText"), misT:$("#misTitle")
+};
+(function(){ const cd=EL.cDist; cd.style.left="-110px"; cd.style.width="220px"; cd.style.textAlign="center"; cd.style.top="30px"; })();
+let toastT=0;
+function toast(t){ EL.toast.textContent=t; EL.toast.classList.add("on"); toastT=2.6; }
+/* 字幕打字机 */
+const SUB={q:[],cur:null,n:0,t:0,hold:0};
+function say(who,text,voice){
+  SUB.q.push({who:who,text:text,voice:voice!==false});
+}
+function updateSub(dt){
+  if(!SUB.cur && SUB.q.length){
+    const m=SUB.q.shift();
+    SUB.cur=m; SUB.n=0; SUB.t=0; SUB.hold=0;
+    EL.subWho.textContent=m.who;
+    EL.sub.classList.add("on");
+    if(m.voice && /广播/.test(m.who)) chimeSfx();
+    if(m.voice) speak(m.text);
+  }
+  if(SUB.cur){
+    SUB.t+=dt;
+    const total=SUB.cur.text.length;
+    const cps = SUB.cur.who.indexOf("广播")>=0 ? 15 : 26;
+    SUB.n = Math.min(total, SUB.n + cps*dt);
+    EL.subTx.textContent = SUB.cur.text.slice(0,Math.floor(SUB.n));
+    if(SUB.n>=total){
+      SUB.hold+=dt;
+      if(SUB.hold>2.8+total*0.012){ SUB.cur=null; EL.sub.classList.remove("on"); }
+    }
+  }
+}
+function buildFragHUD(){
+  EL.frag.innerHTML="";
+  ITEMS.forEach((it,i)=>{
+    const d=document.createElement("div");
+    d.className="frag"+(it.got?" has":"");
+    d.innerHTML='<span class="bx"></span><span class="id">'+String(i+1).padStart(2,"0")+
+      '</span><span class="nm">'+it.name+(it.got?"":"")+'</span>';
+    EL.frag.appendChild(d);
+  });
+}
+
+/* ============================ 游戏状态 ============================ */
+const RATE = 6.0;                    // 现实秒 / 游戏分钟
+const T0 = 23*60+50;                 // 23:50
+const T_UNLOCK = 1440+16+43/60;      // 00:16:43 前进路锁死
+const T_TRAIN  = 1440+16;            // 00:16:00 列车出现在隧道里
+const T_ARRIVE = 1440+17;            // 00:17:00 进站
+const GS = {
+  t:0, gm:T0, phase:"play", power:false, srOpen:false, srAnim:0, cageAnim:0,
+  handle:false, late:false, bad:false, lightMul:1, deadT:0,
+  shakeT:0, shakeM:0, trainStarted:false, ending:null, endT:0, started:false
+};
+const PL = {x:-6.4, y:FY, z:-16.0, yaw:0.0, pitch:0.0, vy:0, bob:0, lastStep:0, flash:true, flashOn:true,coyote:0,jumpCd:0,dip:0,airborne:false};
+const PR = 0.34, EYE = 1.66, STEP = 0.42;
+const KEY = {};
+const FLASHL = {p:[0,0,0], c:[0.92,0.86,0.74], r:11, k:0, flash:true};
+const CAMP = [0,0,0];
+
+function floorAt(x,z){
+  for(let i=0;i<W.floors.length;i++){
+    const f=W.floors[i];
+    if(x>=f.x0&&x<=f.x1&&z>=f.z0&&z<=f.z1) return f.y;
+  }
+  return (x<0.0 && z>ZS0 && z<ZS1) ? FY : TY;
+}
+function fwdVec(){
+  const cp=Math.cos(PL.pitch);
+  return [Math.sin(PL.yaw)*cp, Math.sin(PL.pitch), -Math.cos(PL.yaw)*cp];
+}
+function shake(mag,dur){ GS.shakeM=Math.max(GS.shakeM,mag); GS.shakeT=Math.max(GS.shakeT,dur); }
+
+/* ============================ 交互点 ============================ */
+const INTER=[];
+function reg(o){ INTER.push(o); return o; }
+function distanceTo(p){ return Math.hypot(p[0]-PL.x, p[1]-(PL.y+EYE), p[2]-PL.z); }
+function bestInter(){
+  const f=fwdVec();
+  let best=null, bs=-1;
+  for(let i=0;i<INTER.length;i++){
+    const it=INTER[i];
+    if(it.show && !it.show()) continue;
+    const dx=it.p[0]-PL.x, dy=it.p[1]-(PL.y+EYE), dz=it.p[2]-PL.z;
+    const d=Math.hypot(dx,dy,dz);
+    if(d>it.r) continue;
+    const dot=(dx*f[0]+dy*f[1]+dz*f[2])/(d||0.0001);
+    if(dot<0.55) continue;
+    const sc=dot*3-d*0.15;
+    if(sc>bs){ bs=sc; best=it; }
+  }
+  return best;
+}
+function doInter(){
+  const it=bestInter();
+  if(!it) return;
+  it.act();
+}
+/* —— 物品交互 —— */
+ITEMS.forEach(it=>{
+  reg({
+    p:it.pos, r:2.7,
+    show:()=>{
+      if(it.got) return false;
+      if(it.id==="order" && !GS.power) return false;
+      if(it.id==="relay5" && !GS.srOpen) return false;
+      return true;
+    },
+    label:()=>"拾取 · "+it.name,
+    act:()=>{
+      it.got=true; pickupSfx();
+      toast("已回收：" + it.name);
+      say("旁白","你把「"+it.name+"」收进值班服口袋。它比看起来重。",false);
+      buildFragHUD();
+      const n=ITEMS.filter(x=>x.got).length;
+      if(n===4 && !GS.srOpen){
+        GS.srOpen=true;
+        relayClick(0.35,1800); relayClick(0.3,2600);
+        setTimeout(()=>relayClick(0.28,2100),260);
+        say("站内广播","信号室柜门已解锁。……工牌识别通过。",true);
+        toast("信号室已解锁 · 回去吧");
+      }
+      if(it.id==="key"){
+        say("旁白","钥匙上的标签写着：停用 · 五号继电器柜。十七年前的字体。",false);
+      }
+    }
+  });
+});
+/* —— 配电柜总闸 —— */
+reg({
+  p:[-17.0,1.35,-30.0], r:2.8,
+  show:()=>!GS.power,
+  label:()=>"扳下配电柜总闸",
+  act:()=>{
+    GS.power=true; GS.cageAnimStart=GS.t;
+    relayClick(0.42,1500); relayClick(0.36,2900);
+    setTimeout(()=>relayClick(0.3,1900),180);
+    say("旁白","闸刀合上的一瞬间，整条站台的灯都暗了一下，再亮起来——检修笼的门在动。",false);
+    toast("配电已合闸 · 检修笼开启");
+    for(let i=0;i<6;i++) setTimeout(()=>relayClick(0.16,1200+i*260), i*90);
+  }
+});
+/* —— 调度台 —— */
+reg({
+  p:[-16.6,1.2,-14.0], r:2.6,
+  label:()=>"查看调度台",
+  act:()=>{
+    toast("调度台：0017 次 · 进二道");
+    say("调度台","进路表上一次被人改过，改的时间被涂掉了——只留下一行小字：按调度席指令执行。",false);
+    relayClick(0.12,2800);
+  }
+});
+/* —— 信号室门 —— */
+reg({
+  p:[-14.3,1.2,28.3], r:2.9,
+  label:()=>GS.srOpen? "信号室 · 已解锁" : "信号室柜门 · 已锁定（需要 4 件记录）",
+  act:()=>{
+    if(!GS.srOpen){ toast("柜门锁定 · 需先找回 4 件记录"); relayClick(0.18,900); }
+    else toast("信号室门已打开");
+  }
+});
+/* —— 总调度手柄 —— */
+reg({
+  p:[-16.7,1.15,30.8], r:2.7,
+  show:()=>GS.srOpen && !GS.handle,
+  label:()=> ITEMS.filter(x=>x.got).length>=5 ? "拉下总调度手柄" : "总调度手柄 · 缺少五号继电器",
+  act:()=>{
+    if(ITEMS.filter(x=>x.got).length<5){
+      toast("缺少五号继电器 · 手柄锁死"); relayClick(0.16,1000); return;
+    }
+    if(GS.gm>=T_UNLOCK){
+      GS.late=true; toast("00:16:43 已过 · 进路锁死");
+      say("旁白","手柄推到底了。可继电器没有响——它比它该有的时间，慢了半秒。",false);
+      relayClick(0.2,700);
+    } else {
+      GS.handle=true;
+      relayClick(0.5,1400); setTimeout(()=>relayClick(0.42,2400),160);
+      setTimeout(()=>relayClick(0.36,1700),320);
+      say("调度台","进路已锁。0017 次，二道停车。",true);
+      toast("进路锁死 · 0017 次将停在二道");
+    }
+  }
+});
+
+/* ============================ 广播表 ============================ */
+const CASTS=[
+ {t:1430.20, who:"站内广播", txt:"23:50。岚桥站最后一班车即将进站。……你接管夜班调度席。0017 次，进二道。"},
+ {t:1431.70, who:"旁白",     txt:"控制台上有一行小字：终点站 临江北。你今晚的活，就是让这班车正常进站、正常发出。"},
+ {t:1435.00, who:"旁白",     txt:"站里比平时冷。广告灯箱在闪，继电器在响。你有种被人从背后盯着的感觉。"},
+ {t:1440.00, who:"站内广播", txt:"开往临江北的 0017 次列车稍后进站，请在黄线外等候。"},
+ {t:1443.50, who:"旁白",     txt:"值班日志被人撕掉了五页。碎片散在站台、检修笼和隧道里——把它们找回来。"},
+ {t:1447.00, who:"站内广播", txt:"岚桥站提示，站台下方带电，请勿跨越黄线。"},
+ {t:1451.00, who:"旁白",     txt:"隧道深处有继电器在响，很规律。像有人在里面按着同一个按钮。"},
+ {t:1452.00, who:"站内广播", txt:"0017 次，岚桥站呼叫。前方四道占用，立即停车，等待人工引导。站台乘客请后退至黄线内。"},
+ {t:1454.20, who:"旁白",     txt:"00:16:43 之后进路就会锁死。在那之前回到信号室，拉下总调度手柄。"},
+ {t:1456.10, who:"旁白",     txt:"隧道里有光。它来了。"}
+];
+let castIdx=0;
+const ENDINGS={
+  A:{kick:"ENDING · A", title:"改写", stamp:"00:17 · 岚桥站 · 二道",
+     body:"列车在黄线前减速。\n它停进了二道。\n\n车门打开，车厢里空无一人，只有顶灯一盏一盏亮着。\n\n广播里那句被电流切掉一半的话，这一次是完整的——\n「已按调度席指令执行：停止进路，转入人工引导。」\n\n这一次，“执行”的是停下。\n\n0017 次　位置已确认"},
+  B:{kick:"ENDING · B", title:"封存", stamp:"00:17 · 位置未知",
+     body:"列车没有停。\n它驶进了废弃四道。\n\n控制台上的灯，一盏一盏地灭掉。\n\n「……已按调度席指令执行。」\n\n0017 次　位置未知\n\n黑屏。\n时钟跳回 23:50。"},
+  C:{kick:"ENDING · C", title:"那半秒", stamp:"00:16:43 之后",
+     body:"你把手柄推到底。\n\n五号继电器的反馈，比它该有的时间慢了半秒。\n信号已经发出去，进路已经锁死了。\n\n列车没有停。\n它驶进了废弃四道。\n\n那半秒，十七年前就欠下了。"}
+};
+function showEnding(kind){
+  const e=ENDINGS[kind];
+  GS.phase="ending"; GS.ending=kind;
+  $("#endKick").textContent=e.kick;
+  $("#endTitle").textContent=e.title;
+  $("#endStamp").textContent=e.stamp;
+  $("#endBody").textContent=e.body;
+  $("#end").classList.remove("off");
+  if(document.pointerLockElement) document.exitPointerLock();
+  if(window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(err){}
+}
+
+/* ============================ 更新 ============================ */
+function updateQuestHUD(){
+  const n=ITEMS.filter(x=>x.got).length;
+  const rows=[];
+  const push=(txt,dist,done)=>{ rows.push({txt:txt,d:dist,done:done}); };
+  push("配电柜合闸 · 开检修笼", distanceTo([-17.0,1.35,-30.0]), GS.power);
+  push("集齐 4 件记录 ("+Math.min(n,4)+"/4)", null, GS.srOpen);
+  push("信号室 · 拉下总调度手柄", distanceTo([-16.7,1.15,30.8]), GS.handle);
+  let html="";
+  rows.forEach(r=>{
+    html+='<div class="obj'+(r.done?" done":"")+'"><span>'+(r.done?"✓":"▸")+'</span><span>'+r.txt+
+          '</span>'+(r.d&&!r.done?'<span class="d">'+Math.round(r.d)+'m</span>':'')+'</div>';
+  });
+  EL.arrows.innerHTML=html;
+}
+function takeTarget(){
+  const rem=ITEMS.filter(i=>!i.got);
+  if(!rem.length) return {p:[-16.7,1.15,30.8]};
+  let best=rem[0], bd=1e9;
+  for(const it of rem){
+    const d=distanceTo(it.pos);
+    if(d<bd){ bd=d; best=it; }
+  }
+  return {p:best.pos};
+}
+function updatePlayer(dt){
+  if(GS.phase==="ending") dt*= 0.35;
+  let mf=0, ms=0;
+  if(KEY["w"]||KEY["arrowup"]) mf+=1;
+  if(KEY["s"]||KEY["arrowdown"]) mf-=1;
+  if(KEY["a"]||KEY["arrowleft"]) ms-=1;
+  if(KEY["d"]||KEY["arrowright"]) ms+=1;
+  const run = KEY["shift"]?1.8:1.0;
+  const sp = 3.3*run*(GS.phase==="ending"?0.4:1);
+  const sy=Math.sin(PL.yaw), cy=Math.cos(PL.yaw);
+  let dx=(mf*sy+ms*cy), dz=(-mf*cy+ms*sy);
+  const l=Math.hypot(dx,dz);
+  const moving = l>0.0001;
+  if(moving){ dx/=l; dz/=l; }
+  const feet=PL.y;
+  if(moving){
+    const nx=PL.x+dx*sp*dt, nz=PL.z+dz*sp*dt;
+    if(tryMove(nx,PL.z,feet)) PL.x=nx;
+    if(tryMove(PL.x,nz,feet)) PL.z=nz;
+    PL.bob += dt*(run>1?13.5:9.0);
+    if(PL.bob-PL.lastStep>Math.PI){
+      PL.lastStep=PL.bob; stepSfx(run>1);
+    }
+  }
+  PL.bobAmp = lerpf(PL.bobAmp||0, moving?1:0, Math.min(1,dt*7));
+  const fl=floorAt(PL.x,PL.z);
+  /* ---- 着地判定 / 土狼时间 / 起跳 ---- */
+  const grounded = (PL.y<=fl+0.03 && PL.vy<=0.01);
+  if(grounded) PL.coyote=0.13; else PL.coyote=Math.max(0,(PL.coyote||0)-dt);
+  PL.jumpCd=Math.max(0,(PL.jumpCd||0)-dt);
+  if((KEY[" "]||KEY["jump"]) && PL.coyote>0 && PL.jumpCd<=0 && GS.phase!=="ending"){
+    PL.vy=6.0; PL.coyote=0; PL.jumpCd=0.20; PL.airborne=true;
+    stepSfx(false); beep(210,0.07,"square",0.022);
+  }
+  if(PL.y>fl+0.002 || PL.vy>0){
+    PL.vy-=18*dt; PL.y+=PL.vy*dt;
+    if(PL.y<=fl && PL.vy<=0){
+      const hard=PL.vy<-7.0;
+      shake(hard?0.40:0.10, hard?0.28:0.10);
+      PL.dip=hard?0.18:0.07;
+      if(hard||PL.airborne) stepSfx(hard);
+      PL.y=fl; PL.vy=0; PL.airborne=false;
+    }
+  } else if(PL.y<fl-0.002){
+    PL.y=Math.min(fl, PL.y+dt*6);
+  } else { PL.y=fl; PL.vy=0; PL.airborne=false; }
+  PL.dip=(PL.dip||0)*Math.max(0,1-dt*6.5);
+}
+function tryMove(nx,nz,feet){
+  const f=floorAt(nx,nz);
+  if(f>feet+STEP) return false;
+  for(let i=0;i<W.cols.length;i++){
+    const c=W.cols[i];
+    if(c.off) continue;
+    if(c.y1<=feet+STEP) continue;
+    if(nx+PR>c.x0 && nx-PR<c.x1 && nz+PR>c.z0 && nz-PR<c.z1) return false;
+  }
+  return true;
+}
+function updateTrain(dt){
+  if(!GS.trainStarted) return;
+  const span=T_ARRIVE-T_TRAIN;
+  const p=clampf((GS.gm-T_TRAIN)/span,0,1);
+  if(GS.gm<T_ARRIVE){
+    if(GS.handle && !GS.late) TRAIN.z=-200+210*(1-(1-p)*(1-p));
+    else TRAIN.z=-200+210*Math.pow(p,1.25);
+    if(GS.gm>T_TRAIN+0.5) rumbleLevel(0.16+0.20*p);
+  } else {
+    if(!GS.arrived){
+      GS.arrived=true;
+      if(GS.handle && !GS.late){
+        TRAIN.vel=0; rumbleLevel(0.10);
+        say("站内广播","0017 次，岚桥站二道停车。……车门即将打开。",true);
+        GS.phase="ending"; GS.endT=0; GS.pendingEnd="A";
+      } else {
+        TRAIN.vel=42; rumbleLevel(0.60); shake(0.55,7.0);
+        say("站内广播","0017 次，岚桥站呼叫——你要去哪里？……",true);
+        GS.phase="ending"; GS.endT=0; GS.pendingEnd=(GS.late?"C":"B");
+      }
+    }
+    if(GS.pendingEnd!=="A"){
+      TRAIN.vel=Math.min(58,(TRAIN.vel||42)+dt*2.4);
+      TRAIN.z+=TRAIN.vel*dt;
+      // 灯一盏一盏灭掉
+      for(const L of W.lights){
+        if(L.dyn||L.flash) continue;
+        if(L.dead) continue;
+        if(L.p[2] < TRAIN.z-14){ L.dead=true; }
+        else if(L.p[2] < TRAIN.z-2){ L.k = (Math.random()<0.5?0:1.0); }
+      }
+    }
+  }
+}
+function updateLights(){
+  const cand=[];
+  for(let i=0;i<W.lights.length;i++){
+    const L=W.lights[i];
+    if(L.off){ L.p[0]=L.off[0]; L.p[1]=L.off[1]; L.p[2]=L.off[2]+TRAIN.z; }
+    if(L.k===0) continue;
+    const dx=L.p[0]-CAMP[0], dy=L.p[1]-CAMP[1], dz=L.p[2]-CAMP[2];
+    const d2=dx*dx+dy*dy+dz*dz;
+    const rr=L.r+10;
+    if(d2>rr*rr){ continue; }
+    L._d2=d2; cand.push(L);
+  }
+  cand.sort((a,b)=>a._d2-b._d2);
+  const sel=[];
+  if(FLASHL.k>0.01) sel.push(FLASHL);
+  for(let i=0;i<cand.length && sel.length<MAXL;i++) sel.push(cand[i]);
+  gl.uniform1i(U.uLCount, sel.length);
+  for(let i=0;i<sel.length;i++){
+    const L=sel[i];
+    let k=(L.k===undefined?1:L.k)*GS.lightMul;
+    if(L.dead) k=0;
+    if(L.flickAmp) k*= (0.35+0.65*Math.abs(Math.sin(GS.t*(L.flickAmp*2.0)+L.flickPh)));
+    gl.uniform3f(U["uLPos["+i+"]"], L.p[0],L.p[1],L.p[2]);
+    gl.uniform3f(U["uLCol["+i+"]"], L.c[0]*k,L.c[1]*k,L.c[2]*k);
+    gl.uniform1f(U["uLRad["+i+"]"], L.r);
+  }
+}
+const HINT={cage:false,track:false,dark:false,niche:false};
+function checkHints(){
+  if(!HINT.cage && !GS.power && distanceTo([-17.1,1.4,-36.0])<4.6){
+    HINT.cage=true; toast("检修笼锁着 · 去配电柜合闸");
+    say("旁白","笼子上挂着一把锁。站台西侧的配电柜——合上闸就能拉开它。",false);
+  }
+  if(!HINT.track && PL.x>0.35){
+    HINT.track=true; toast("站台下方带电 · 别久留");
+    say("旁白","脚下的道砟在响。黄线下面带电——这里不是给乘客待的地方。",false);
+  }
+  if(!HINT.dark && PL.x>0.35 && PL.z<-57 && !PL.flash){
+    HINT.dark=true; toast("太黑了 · 按 F 打开手电");
+  }
+  if(!HINT.niche && PL.x>8.0 && PL.z<-57){
+    HINT.niche=true;
+    say("旁白","检修环线。墙上有人用红漆写过一遍数字——0017。",false);
+  }
+}
+function updateHUD(dt){
+  const m=Math.floor(GS.gm), mm=((m%1440)+1440)%1440;
+  const hh=Math.floor(mm/60), mi=mm%60, ss=Math.floor((GS.gm-Math.floor(GS.gm))*60);
+  const crit = GS.gm>=1454.5;
+  EL.clock.textContent=String(hh).padStart(2,"0")+":"+String(mi).padStart(2,"0")+":"+String(ss).padStart(2,"0");
+  EL.clock.className="mono"+(crit?" crit":"");
+  EL.clockSub.textContent = GS.handle ? "进路已锁 · 二道停车" :
+     (GS.gm>=T_UNLOCK ? "00:16:43 已过 · 进路锁死" : "0017 次 · 00:17 进站");
+  if(crit) EL.warn.style.background="rgba(255,50,40,"+(0.05+0.05*Math.sin(GS.t*6))+")";
+  else EL.warn.style.background="rgba(255,50,40,0)";
+  const tgt=takeTarget();
+  const dx=tgt.p[0]-PL.x, dz=tgt.p[2]-PL.z, dy=tgt.p[1]-(PL.y+EYE);
+  const f=fwdVec(), r=[Math.cos(PL.yaw),0,Math.sin(PL.yaw)];
+  const fz=dx*f[0]+dz*f[2]+dy*f[1];
+  const rx=dx*r[0]+dz*r[2];
+  const ang=Math.atan2(rx,fz);
+  EL.cArrow.style.transform="rotate("+(-90+ang*180/Math.PI).toFixed(1)+"deg)";
+  EL.cArrow.className = fz<0 ? "off" : "";
+  EL.cDist.textContent = Math.round(Math.hypot(dx,dy,dz))+" m";
+  EL.cDist.style.color = fz<0 ? "#49586a" : "#63d9ff";
+  const bi=bestInter();
+  if(bi){ EL.prompt.classList.add("on"); EL.promptTx.textContent=bi.label?bi.label():"交互"; EL.cross.classList.add("hot"); }
+  else { EL.prompt.classList.remove("on"); EL.cross.classList.remove("hot"); }
+}
+
+/* ============================ 渲染 ============================ */
+const PM=m4(), VM=m4(), M1=m4(), M2=m4();
+const RV=[1,0,0], UP2=[0,1,0];
+function m4trsZ(out,tx,ty,tz,rz,s){
+  const c=Math.cos(rz), sn=Math.sin(rz);
+  out[0]=c*s;   out[1]=sn*s; out[2]=0;   out[3]=0;
+  out[4]=-sn*s; out[5]=c*s;  out[6]=0;   out[7]=0;
+  out[8]=0;     out[9]=0;    out[10]=s;  out[11]=0;
+  out[12]=tx;   out[13]=ty;  out[14]=tz; out[15]=1;
+  return out;
+}
+function m3rotZ(out,rz){
+  const c=Math.cos(rz), s=Math.sin(rz);
+  out[0]=c; out[1]=s; out[2]=0;
+  out[3]=-s;out[4]=c; out[5]=0;
+  out[6]=0; out[7]=0; out[8]=1;
+  return out;
+}
+function beginSprites(){
+  gl.useProgram(PROG_S);
+  gl.uniformMatrix4fv(US.uProj,false,PM);
+  gl.uniformMatrix4fv(US.uView,false,VM);
+  gl.uniform3f(US.uRight,RV[0],RV[1],RV[2]);
+  gl.uniform3f(US.uUp,UP2[0],UP2[1],UP2[2]);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,tGlow); gl.uniform1i(US.uTex,0);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE); gl.depthMask(false);
+  gl.bindBuffer(gl.ARRAY_BUFFER,G_SPRQUAD);
+  gl.vertexAttribPointer(AS.pos,2,gl.FLOAT,false,16,0);
+  gl.vertexAttribPointer(AS.uv,2,gl.FLOAT,false,16,8);
+  gl.enableVertexAttribArray(AS.pos); gl.enableVertexAttribArray(AS.uv);
+}
+function sprite(c,s,col,a){
+  gl.uniform3f(US.uCenter,c[0],c[1],c[2]);
+  gl.uniform1f(US.uSize,s);
+  gl.uniform3f(US.uGlowCol,col[0],col[1],col[2]);
+  gl.uniform1f(US.uAlpha,a);
+  gl.drawArrays(gl.TRIANGLES,0,6);
+}
+function endSprites(){
+  gl.depthMask(true); gl.disable(gl.BLEND);
+  gl.disableVertexAttribArray(AS.pos); gl.disableVertexAttribArray(AS.uv);
+  gl.useProgram(PROG); enableAttribs(true);
+}
+function render(){
+  gl.clearColor(0.012,0.015,0.024,1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  const asp=Math.max(0.5, VW/Math.max(1,VH));
+  m4persp(PM, 72*DEG, asp, 0.06, 420);
+  const bobY=Math.sin(PL.bob)*0.032*(PL.bobAmp||0);
+  let roll=Math.sin(PL.bob*0.5)*0.008*(PL.bobAmp||0);
+  let shx=0, shy=0;
+  if(GS.shakeT>0){ const m=GS.shakeM; shx=rnd(-1,1)*m*0.05; shy=rnd(-1,1)*m*0.05; roll+=rnd(-1,1)*m*0.02; }
+  CAMP[0]=PL.x+shx; CAMP[1]=PL.y+EYE+bobY+shy-(PL.dip||0); CAMP[2]=PL.z;
+  m4view(VM,CAMP[0],CAMP[1],CAMP[2],PL.yaw,PL.pitch,roll);
+  const f=fwdVec();
+  RV[0]=Math.cos(PL.yaw); RV[1]=0; RV[2]=Math.sin(PL.yaw);
+  UP2[0]=RV[1]*f[2]-RV[2]*f[1];
+  UP2[1]=RV[2]*f[0]-RV[0]*f[2];
+  UP2[2]=RV[0]*f[1]-RV[1]*f[0];
+
+  gl.useProgram(PROG); enableAttribs(true);
+  gl.uniformMatrix4fv(U.uProj,false,PM);
+  gl.uniformMatrix4fv(U.uView,false,VM);
+  gl.uniform3f(U.uCam,CAMP[0],CAMP[1],CAMP[2]);
+  gl.uniform3f(U.uFogCol,0.018,0.024,0.036);
+  gl.uniform1f(U.uFogDen,0.0138);
+  gl.uniform1f(U.uTime,GS.t);
+  gl.uniform3f(U.uDirCol,0.045,0.052,0.070);
+  gl.uniform3f(U.uDirVec,0.25,1.0,0.35);
+  updateLights();
+
+  drawList(STATION, NOWM, I3);
+
+  m4trs(M1,0,0,GS.srAnim*2.72,0,1,1,1);   drawList(G_SRDOOR, M1, I3);
+  m4trs(M1,0,GS.cageAnim*2.14,0,0,1,1,1); drawList(G_CAGEDOOR, M1, I3);
+  const la=lerpf(0.52,-1.02,GS.leverAnim||0);
+  m4trsZ(M1,-16.99,1.09,-30.0,la,1); m3rotZ(M2,la);  drawList(G_LEVER, M1, M2);
+  const ha=-1.18*(GS.handleAnim||0);
+  m4trsZ(M1,-16.70,1.08,30.80,ha,1); m3rotZ(M2,ha);  drawList(G_HANDLEBAR, M1, M2);
+  drawList(G_HANDLE, NOWM, I3);
+
+  m4trs(M1,0,0,TRAIN.z,0,1,1,1); drawList(G_TRAIN, M1, I3);
+
+  const spin=GS.t*0.9;
+  ITEMS.forEach((it,i)=>{
+    if(it.got) return;
+    const bob=Math.sin(GS.t*1.5+i*1.4)*0.09;
+    m4trs(M1, it.pos[0], it.pos[1]+bob, it.pos[2], spin+i, 0.23,0.23,0.23);
+    drawList(G_ITEM, M1, I3, it.col);
+  });
+
+  /* 光晕 */
+  beginSprites();
+  ITEMS.forEach((it,i)=>{
+    if(it.got) return;
+    const bob=Math.sin(GS.t*1.5+i*1.4)*0.09;
+    const c=[it.pos[0], it.pos[1]+bob, it.pos[2]];
+    sprite(c, 3.4, it.col, 0.42+0.10*Math.sin(GS.t*2.2+i));
+    sprite(c, 1.0, [1,1,1], 0.55);
+  });
+  if(GS.trainStarted){
+    for(let i=0;i<3;i++){
+      const l=TRN_LIGHTS[i], z=l.off[2]+TRAIN.z;
+      if(Math.abs(z-CAMP[2])<120) sprite([l.off[0],l.off[1],z], l.r*0.95, l.c, 0.80);
+    }
+    for(let i=3;i<TRN_LIGHTS.length;i++){
+      const l=TRN_LIGHTS[i], z=l.off[2]+TRAIN.z;
+      if(Math.abs(z-CAMP[2])<90) sprite([l.off[0],l.off[1],z], 3.0, [1,0.25,0.2], 0.55);
+    }
+  }
+  endSprites();
+}
+
+/* ============================ 主循环 ============================ */
+let last=0, fps=60, fpsT=0, fpsN=0, hudT=0, clockT=0, hintT=0;
+function update(dt){
+  GS.t+=dt;
+  updateSub(dt);
+  if(toastT>0){ toastT-=dt; if(toastT<=0) EL.toast.classList.remove("on"); }
+  GS.gm += dt/RATE;
+  while(castIdx<CASTS.length && GS.gm>=CASTS[castIdx].t){ const c=CASTS[castIdx++]; say(c.who,c.txt); }
+  if(!GS.trainStarted && GS.gm>=T_TRAIN) GS.trainStarted=true;
+  updatePlayer(dt);
+  updateTrain(dt);
+  GS.cageAnim  += ((GS.power?1:0)-GS.cageAnim)*Math.min(1,dt*1.4);
+  GS.srAnim    += ((GS.srOpen?1:0)-GS.srAnim)*Math.min(1,dt*1.6);
+  DC_SR.off   = (GS.srAnim>=0.30);
+  DC_CAGE.off = (GS.cageAnim>=0.30);
+  GS.leverAnim += ((GS.power?1:0)-(GS.leverAnim||0))*Math.min(1,dt*4.0);
+  GS.handleAnim+= ((GS.handle?1:0)-(GS.handleAnim||0))*Math.min(1,dt*4.5);
+  const f=fwdVec();
+  FLASHL.p[0]=PL.x+f[0]*0.5; FLASHL.p[1]=PL.y+EYE+f[1]*0.5; FLASHL.p[2]=PL.z+f[2]*0.5;
+  FLASHL.k=PL.flash?1:0;
+  if(GS.shakeT>0){ GS.shakeT-=dt; if(GS.shakeT<=0) GS.shakeM=0; }
+  if(GS.phase==="ending"){
+    GS.endT+=dt;
+    if(GS.pendingEnd==="A"){
+      if(GS.endT>3.4 && !GS.ending) showEnding("A");
+    }else{
+      if(GS.endT>1.5) EL.fade.style.opacity=String(Math.min(1,(GS.endT-1.5)/2.3));
+      if(GS.endT>4.6 && !GS.ending) showEnding(GS.pendingEnd);
+    }
+  }
+  hudT+=dt;
+  if(hudT>0.12){ hudT=0; updateHUD(dt); updateQuestHUD(); }
+  hintT+=dt;
+  if(hintT>0.4){ hintT=0; checkHints(); }
+  clockT+=dt;
+  if(clockT>0.45){
+    clockT=0;
+    const m=Math.floor(GS.gm), mm=((m%1440)+1440)%1440;
+    const hh=Math.floor(mm/60), mi=mm%60;
+    const crit=GS.gm>=1454.5;
+    drawClock(String(hh).padStart(2,"0")+":"+String(mi).padStart(2,"0"),
+      GS.handle?"进路已锁 · 二道停车":"0017 次 · 00:17 进站", crit);
+  }
+}
+function frame(now){
+  if(!last) last=now;
+  let dt=(now-last)/1000; last=now;
+  if(dt>0.07) dt=0.07;
+  if(!GS.started){
+    GS.t+=dt;
+    PL.yaw=0.30*Math.sin(GS.t*0.13)-0.10;
+    PL.pitch=-0.02+0.02*Math.sin(GS.t*0.09);
+    try{ render(); }catch(e){ reportErr(e); }
+    requestAnimationFrame(frame); return;
+  }
+  fpsT+=dt; fpsN++;
+  if(fpsT>0.6){
+    fps=fpsN/fpsT; fpsT=0; fpsN=0;
+    if(fps<40 && RSCALE>0.62){ RSCALE=Math.max(0.62,RSCALE-0.12); resize(); }
+    else if(fps>57 && RSCALE<1){ RSCALE=Math.min(1,RSCALE+0.08); resize(); }
+    EL.stats.textContent="FPS "+fps.toFixed(0)+"  ·  x"+PL.x.toFixed(1)+" z"+PL.z.toFixed(1);
+  }
+  try{ update(dt); render(); }catch(e){ reportErr(e); }
+  requestAnimationFrame(frame);
+}
+function reportErr(e){
+  if(GS._err) return;
+  GS._err=1;
+  try{ console.error(e); }catch(x){}
+  toast("已忽略一处异常："+(e&&e.message?e.message:"unknown"));
+}
+
+/* ============================ 输入 ============================ */
+window.addEventListener("keydown",function(e){
+  const k=(e.key||"").toLowerCase();
+  if(k==="tab"||k===" ") e.preventDefault();
+  KEY[k]=true;
+  if(!GS.started) return;
+  if(k==="e") doInter();
+  else if(k==="f"){ PL.flash=!PL.flash; toast(PL.flash?"手电筒：开":"手电筒：关"); beep(PL.flash?940:520,0.08,"square",0.030); }
+  else if(k==="v"){ VOICE=!VOICE; toast("语音广播："+(VOICE?"开":"关"));
+    if(!VOICE && window.speechSynthesis) try{speechSynthesis.cancel();}catch(err){} }
+  else if(k==="r"){ resetGame(); toast("已重启夜班 23:50"); }
+},false);
+window.addEventListener("keyup",function(e){ const k=(e.key||"").toLowerCase(); KEY[k]=false; },false);
+document.addEventListener("mousemove",function(e){
+  if(document.pointerLockElement!==canvas) return;
+  const s=0.0021;
+  PL.yaw += e.movementX*s;
+  PL.pitch = clampf(PL.pitch - e.movementY*s, -1.45, 1.45);
+},false);
+canvas.addEventListener("click",function(){
+  audioInit();
+  if(GS.started && !GS.ending && document.pointerLockElement!==canvas) canvas.requestPointerLock();
+});
+document.addEventListener("pointerlockchange",function(){
+  const locked=(document.pointerLockElement===canvas);
+  if(!GS.started) return;
+  if(locked){ $("#pause").classList.add("off"); }
+  else if(!GS.ending){ $("#pause").classList.remove("off"); }
+});
+$("#btnStart").addEventListener("click",function(){
+  audioInit();
+  GS.started=true;
+  $("#start").classList.add("off");
+  canvas.requestPointerLock();
+  toast("夜班开始 · 23:50");
+});
+$("#btnResume").addEventListener("click",function(){
+  audioInit(); canvas.requestPointerLock(); $("#pause").classList.add("off");
+});
+$("#btnRestart2").addEventListener("click",function(){ resetGame(); canvas.requestPointerLock(); $("#pause").classList.add("off"); });
+$("#btnAgain").addEventListener("click",function(){ resetGame(); canvas.requestPointerLock(); });
+window.addEventListener("resize",function(){ resize(); });
+
+/* ============================ 启动 ============================ */
+function resetGame(){
+  GS.gm=T0; GS.phase="play"; GS.power=false; GS.srOpen=false; GS.srAnim=0; GS.cageAnim=0;
+  GS.leverAnim=0; GS.handleAnim=0; GS.handle=false; GS.late=false; GS.bad=false;
+  GS.lightMul=1; GS.arrived=false; GS.pendingEnd=null; GS.ending=null; GS.endT=0;
+  GS.trainStarted=false; GS.shakeT=0; GS.shakeM=0; GS.t=0;
+  TRAIN.z=-190; TRAIN.vel=0;
+  ITEMS.forEach(function(it){ it.got=false; });
+  W.lights.forEach(function(L){ L.dead=false; L.k=1; });
+  SUB.q.length=0; SUB.cur=null; EL.sub.classList.remove("on");
+  PL.x=-6.4; PL.y=FY; PL.z=-16.0; PL.yaw=0; PL.pitch=0; PL.vy=0; PL.bob=0; PL.lastStep=0;
+  PL.coyote=0; PL.jumpCd=0; PL.dip=0; PL.airborne=false; KEY[" "]=false;
+  PL.flash=true; KEY["w"]=KEY["a"]=KEY["s"]=KEY["d"]=false;
+  HINT.cage=HINT.track=HINT.dark=HINT.niche=false;
+  castIdx=0; hudT=1; toastT=0; GS._err=0; EL.toast.classList.remove("on");
+  EL.fade.style.opacity="0"; EL.warn.style.background="rgba(255,50,40,0)";
+  $("#end").classList.add("off");
+  if(RUMBLE){ RUMBLE.g.gain.value=0.0001; }
+  if(window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+  buildFragHUD(); updateQuestHUD(); updateHUD(0.016);
+  drawClock("23:50","0017 次 · 00:17 进站",false);
+}
+let Q=null;
+try{ Q=new URLSearchParams((typeof location!=="undefined" && location.search)?location.search:""); }catch(e){ Q=null; }
+function applyQuery(){
+  if(!Q) return;
+  try{
+    if(Q.has("pos")){ const a=Q.get("pos").split(",").map(Number); PL.x=a[0]; PL.z=a[1]; PL.y=floorAt(a[0],a[1]); }
+    if(Q.has("yaw")) PL.yaw=parseFloat(Q.get("yaw"));
+    if(Q.has("pitch")) PL.pitch=parseFloat(Q.get("pitch"));
+    if(Q.has("t")) GS.gm=parseFloat(Q.get("t"));
+    if(Q.has("items")) ITEMS.forEach(x=>{ x.got=true; });
+    if(Q.has("power")) GS.power=true;
+    if(Q.has("sr")) GS.srOpen=true;
+    if(Q.has("np")) PL.flash=false;
+    if(Q.has("auto")){ GS.started=true; $("#start").classList.add("off"); }
+  }catch(e){}
+}
+function boot(){
+  resize();
+  applyQuery();
+  W.flicker.forEach(function(L,i){ L.flickAmp=0.6+Math.random()*0.5; L.flickPh=Math.random()*6.28; });
+  buildFragHUD();
+  updateQuestHUD();
+  updateHUD(0.016);
+  drawClock("23:50","0017 次 · 00:17 进站",false);
+  $("#start").style.background="radial-gradient(ellipse at 50% 45%, rgba(10,16,24,0.62), rgba(4,6,10,0.93))";
+  $("#loading").style.display="none";
+  toast("点击「开始」进入岚桥站");
+  requestAnimationFrame(frame);
+}
+resetGame();
+boot();
+</script>
+</body>
+</html>
